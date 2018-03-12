@@ -1,0 +1,24 @@
+--- a/PC/getpathp.c
++++ b/PC/getpathp.c
+@@ -465,8 +465,10 @@ calculate_path(void)
+     char argv0_path[MAXPATHLEN+1];
+     char *buf;
+     size_t bufsz;
+-    char *pythonhome = Py_GetPythonHome();
+-    char *envpath = Py_GETENV("PYTHONPATH");
++    //char *pythonhome = Py_GetPythonHome();
++    char *pythonhome = NULL;
++    //char *envpath = Py_GETENV("PYTHONPATH");
++    char *envpath = NULL;
+ 
+ #ifdef MS_WINDOWS
+     int skiphome, skipdefault;
+--- a/Lib/distutils/command/install.py
++++ b/Lib/distutils/command/install.py
+@@ -34,4 +34,4 @@
+     WINDOWS_SCHEME = {
+-        'purelib': '$base/Lib/site-packages',
+-        'platlib': '$base/Lib/site-packages',
++        'purelib': '$base/lib/python$py_version_nodot/site-packages',
++        'platlib': '$base/lib/python$py_version_nodot/site-packages',
+         'headers': '$base/Include/$dist_name',
