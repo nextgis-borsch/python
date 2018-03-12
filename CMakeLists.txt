@@ -1,12 +1,23 @@
-cmake_minimum_required(VERSION 2.8.6)
+cmake_minimum_required(VERSION 2.8.12 FATAL_ERROR)
 
-set(PYTHON_VERSION "3.5.2" CACHE STRING "The version of Python to build.")
+project(Python C ASM)
 
-string(REPLACE "." ";" VERSION_LIST ${PYTHON_VERSION})
+# Some init settings
+set(CMAKE_COLOR_MAKEFILE ON)
+# Set path to additional CMake modules
+set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
+
+include(util)
+
+check_version(PY_VERSION_MAJOR PY_VERSION_MINOR PY_VERSION_PATCH)
 list(GET VERSION_LIST 0 PY_VERSION_MAJOR)
 list(GET VERSION_LIST 1 PY_VERSION_MINOR)
 list(GET VERSION_LIST 2 PY_VERSION_PATCH)
 set(PY_VERSION "${PY_VERSION_MAJOR}.${PY_VERSION_MINOR}.${PY_VERSION_PATCH}")
+set(PYTHON_VERSION ${PY_VERSION})
+set(VERSION ${PY_VERSION})
+
+report_version(${PROJECT_NAME} ${VERSION})
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_CONFIGURATION_TYPES Release CACHE STRING "Release configuration" FORCE)
@@ -23,7 +34,7 @@ if(APPLE)
   message(STATUS "${_msg} - ${MACOSX_DEPLOYMENT_TARGET}")
 endif()
 
-project(Python C ASM)
+
 
 if(POLICY CMP0042)
     cmake_policy(SET CMP0042 OLD)
@@ -176,7 +187,7 @@ get_filename_component(SRC_DIR "${SRC_DIR}" ABSOLUTE)
 get_filename_component(_parent_dir ${CMAKE_CURRENT_BINARY_DIR} PATH)
 string(REGEX REPLACE "rc[1-9]$" "" _py_version_patch_no_rc ${PY_VERSION_PATCH})
 set(_py_version_no_rc "${PY_VERSION_MAJOR}.${PY_VERSION_MINOR}.${_py_version_patch_no_rc}")
-set(_download_link "http://www.python.org/ftp/python/${_py_version_no_rc}/Python-${PY_VERSION}.tgz")
+set(_download_link "https://www.python.org/ftp/python/${_py_version_no_rc}/Python-${PY_VERSION}.tgz")
 # Variable below represent the set of supported python version.
 set(_download_2.7.3_md5 "2cf641732ac23b18d139be077bd906cd")
 set(_download_2.7.4_md5 "592603cfaf4490a980e93ecb92bde44a")
@@ -188,6 +199,7 @@ set(_download_2.7.9_md5 "5eebcaa0030dc4061156d3429657fb83")
 set(_download_2.7.10_md5 "d7547558fd673bd9d38e2108c6b42521")
 set(_download_2.7.11_md5 "6b6076ec9e93f05dd63e47eb9c15728b")
 set(_download_2.7.12_md5 "88d61f82e3616a4be952828b3694109d")
+set(_download_2.7.13_md5 "17add4bf0ad0ec2f08e0cae6d205c700")
 set(_download_3.5.1_md5 "be78e48cdfc1a7ad90efff146dce6cfe")
 set(_download_3.5.2_md5 "3fe8434643a78630c61c6464fe2e7e72")
 set(_extracted_dir "Python-${PY_VERSION}")
@@ -214,26 +226,6 @@ if(NOT EXISTS ${SRC_DIR}/${_landmark} AND DOWNLOAD_SOURCES)
         message(FATAL_ERROR "error: extraction of '${_filename}' failed")
     endif()
     set(SRC_DIR ${CMAKE_CURRENT_BINARY_DIR}/../${_extracted_dir})
-    
-    if (WIN32)
-        #Patching
-        find_package(Git)
-        if(NOT GIT_FOUND)
-          message(FATAL_ERROR "git is required")
-        endif()
-        
-        #   for openssl 1.1
-        if (PY_VERSION_MAJOR EQUAL 2 AND PY_VERSION_MINOR LESS 13)
-            execute_process(COMMAND ${GIT_EXECUTABLE} apply -v --whitespace fix ${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/Port-Python-2.7-s-SSL-module-to-OpenSSL-1.1.0-4.patch
-                WORKING_DIRECTORY ${SRC_DIR}
-            )
-        endif()
-        
-        #   for ng installer
-        execute_process(COMMAND ${GIT_EXECUTABLE} apply -v --whitespace fix ${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches-win32/ng.patch
-            WORKING_DIRECTORY ${SRC_DIR}
-        )
-    endif()
 endif()
 
 if(NOT EXISTS ${SRC_DIR}/${_landmark})
@@ -263,12 +255,18 @@ string(REGEX REPLACE "([0-9])\\..+" "\\1"
     PY_VERSION_MAJOR ${_version})
 string(REGEX REPLACE "[0-9]\\.([0-9]+)\\..+" "\\1"
     PY_VERSION_MINOR ${_version})
-string(REGEX REPLACE "[0-9]\\.[0-9]+\\.([0-9]+)" "\\1"
+string(REGEX REPLACE "[0-9]\\.[0-9]+\\.([0-9]+)[+]?" "\\1"
     PY_VERSION_PATCH ${_version})
 set(PY_VERSION "${PY_VERSION_MAJOR}.${PY_VERSION_MINOR}.${PY_VERSION_PATCH}")
 message(STATUS "PY_VERSION: ${PY_VERSION}")
 if(NOT DEFINED _download_${PY_VERSION}_md5)
-    message(FATAL_ERROR "error: unknown python version '${PY_VERSION}'. Valid version should match '2.7.[3-12]' or '3.5.[1-2]'")
+    message(FATAL_ERROR "error: unknown python version '${PY_VERSION}'. Valid version should match '2.7.[3-13]' or '3.5.[1-2]'")
+endif()
+
+# Apply patches
+option(PYTHON_APPLY_PATCHES "Apply patches" ON)
+if(PYTHON_APPLY_PATCHES)
+  include(cmake/PythonApplyPatches.cmake)
 endif()
 
 # Convenience boolean variables to easily test python version
@@ -319,9 +317,9 @@ if(USE_LIB64)
     set(LIBDIR "lib64")
 endif()
 set(PYTHONHOME "${LIBDIR}")
-#if(UNIX)
+if(UNIX)
     set(PYTHONHOME "${PYTHONHOME}/${LIBPYTHON}")
-#endif()
+endif()
 
 # Install tree directory
 set(BIN_INSTALL_DIR bin)                         # Contains the python executable
@@ -331,7 +329,12 @@ endif()
 set(LD_VERSION ${LIBPYTHON_VERSION}${ABIFLAGS})
 set(CONFIG_INSTALL_DIR share/${LIBPYTHON})
 set(EXTENSION_INSTALL_DIR ${PYTHONHOME}/lib-dynload)
-set(LIB_CONFIG_INSTALL_DIR ${PYTHONHOME}/config-${LD_VERSION})
+
+if (${LIBPYTHON_VERSION} GREATER 3.1)
+  set(LIB_CONFIG_INSTALL_DIR ${PYTHONHOME}/config-${LD_VERSION})
+else()
+  set(LIB_CONFIG_INSTALL_DIR ${PYTHONHOME}/config)
+endif()
 
 if(INSTALL_WINDOWS_TRADITIONAL)
     set(EXTENSION_INSTALL_DIR DLLs)
@@ -609,87 +612,61 @@ if(BUILD_TESTING)
     endforeach()
 endif()
 
-set(VERSION "${PY_VERSION_MAJOR}.${PY_VERSION_MINOR}.${PY_VERSION_PATCH}")
 
-# Store version string in file for installer needs
-file(TIMESTAMP "${CMAKE_BINARY_DIR}" VERSION_DATETIME "%Y-%m-%d %H:%M:%S" UTC)
-file(WRITE ${CMAKE_BINARY_DIR}/version.str "${VERSION}\n${VERSION_DATETIME}")
+if(HAVE_CONFIGURE_PACKAGE_CONFIG_FILE AND HAVE_WRITE_BASIC_PACKAGE_VERSION_FILE)
 
-set(LIB_NAME "python${PY_VERSION_MAJOR}")
-set(INSTALL_INC_DIR "${CMAKE_INSTALL_PREFIX}/include")
-if (REGISTER_PACKAGE)
-    set(EXPORT_PACKAGE_NAME ${LIB_NAME})
-    string(TOUPPER ${EXPORT_PACKAGE_NAME} EXPORT_PACKAGE_NAME_UPPER)
-    set(EXPORT_PACKAGE_LIB_NAME ${LIB_NAME}${PY_VERSION_MINOR})
+# Configure 'PythonConfig.cmake' for a build tree
+set(CONFIG_DIR_CONFIG ${CONFIG_BUILD_DIR})
+set(INCLUDE_DIR_CONFIG ${INCLUDE_BUILD_DIR})
+set(PYTHON_CONFIG_CODE "####### Expanded from \@PYTHON_CONFIG_CODE\@ #######\n")
+set(PYTHON_CONFIG_CODE "${PYTHON_CONFIG_CODE}list(APPEND PYTHON_INCLUDE_DIR \"${PYCONFIG_BUILD_DIR}\")\n")
+set(PYTHON_CONFIG_CODE "${PYTHON_CONFIG_CODE}##################################################")
+set(python_config ${CONFIG_BUILD_DIR}/PythonConfig.cmake)
+configure_package_config_file(
+    cmake/PythonConfig.cmake.in
+    ${python_config}
+    INSTALL_DESTINATION ${PROJECT_BINARY_DIR}
+    PATH_VARS CONFIG_DIR_CONFIG INCLUDE_DIR_CONFIG
+    NO_CHECK_REQUIRED_COMPONENTS_MACRO
+)
 
-    export(PACKAGE ${EXPORT_PACKAGE_NAME})
+# Configure 'PythonConfig.cmake' for an install tree
+set(CONFIG_DIR_CONFIG ${CONFIG_INSTALL_DIR})
+set(INCLUDE_DIR_CONFIG ${INCLUDE_INSTALL_DIR})
+set(PYTHON_CONFIG_CODE "")
+set(python_install_config ${PROJECT_BINARY_DIR}/CMakeFiles/PythonConfig.cmake)
+configure_package_config_file(
+    cmake/PythonConfig.cmake.in
+    ${python_install_config}
+    INSTALL_DESTINATION ${CMAKE_INSTALL_PREFIX}/${CONFIG_INSTALL_DIR}
+    PATH_VARS CONFIG_DIR_CONFIG INCLUDE_DIR_CONFIG
+    NO_CHECK_REQUIRED_COMPONENTS_MACRO
+)
 
-    include(CMakePackageConfigHelpers)
-    configure_package_config_file(
-        ${CMAKE_SOURCE_DIR}/cmake/PackageConfig.cmake.in
-        ${CMAKE_CURRENT_BINARY_DIR}/${EXPORT_PACKAGE_NAME}Config.cmake
-        INSTALL_DESTINATION ${INSTALL_LIB_DIR}/cmake
-        PATH_VARS INSTALL_INC_DIR )
-    write_basic_package_version_file(
-        ${CMAKE_CURRENT_BINARY_DIR}/${EXPORT_PACKAGE_NAME}ConfigVersion.cmake
-        VERSION ${VERSION}
-        COMPATIBILITY AnyNewerVersion )
+# Configure 'PythonTargets.cmake' and 'PythonConfigVersion.cmake
+get_property(PYTHON_TARGETS GLOBAL PROPERTY PYTHON_TARGETS)
+export(TARGETS ${PYTHON_TARGETS} APPEND FILE ${CONFIG_BUILD_DIR}/PythonTargets.cmake)
+
+set(python_config_version ${CONFIG_BUILD_DIR}/PythonConfigVersion.cmake)
+write_basic_package_version_file(
+    ${python_config_version}
+    VERSION ${PY_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+if(INSTALL_DEVELOPMENT)
+    # Install 'PythonTargets.cmake', 'PythonConfig.cmake' and 'PythonConfigVersion.cmake
+    install(EXPORT PythonTargets
+        FILE PythonTargets.cmake
+        DESTINATION ${CONFIG_INSTALL_DIR} COMPONENT Development)
+
+    install(
+        FILES ${python_install_config} ${python_config_version}
+        DESTINATION ${CONFIG_INSTALL_DIR} COMPONENT Development
+    )
 endif()
 
-### if(HAVE_CONFIGURE_PACKAGE_CONFIG_FILE AND HAVE_WRITE_BASIC_PACKAGE_VERSION_FILE)
-### 
-### # Configure 'PythonConfig.cmake' for a build tree
-### set(CONFIG_DIR_CONFIG ${CONFIG_BUILD_DIR})
-### set(INCLUDE_DIR_CONFIG ${INCLUDE_BUILD_DIR})
-### set(PYTHON_CONFIG_CODE "####### Expanded from \@PYTHON_CONFIG_CODE\@ #######\n")
-### set(PYTHON_CONFIG_CODE "${PYTHON_CONFIG_CODE}list(APPEND PYTHON_INCLUDE_DIR \"${PYCONFIG_BUILD_DIR}\")\n")
-### set(PYTHON_CONFIG_CODE "${PYTHON_CONFIG_CODE}##################################################")
-### set(python_config ${CONFIG_BUILD_DIR}/PythonConfig.cmake)
-### configure_package_config_file(
-###     cmake/PythonConfig.cmake.in
-###     ${python_config}
-###     INSTALL_DESTINATION ${PROJECT_BINARY_DIR}
-###     PATH_VARS CONFIG_DIR_CONFIG INCLUDE_DIR_CONFIG
-###     NO_CHECK_REQUIRED_COMPONENTS_MACRO
-### )
-### 
-### # Configure 'PythonConfig.cmake' for an install tree
-### set(CONFIG_DIR_CONFIG ${CONFIG_INSTALL_DIR})
-### set(INCLUDE_DIR_CONFIG ${INCLUDE_INSTALL_DIR})
-### set(PYTHON_CONFIG_CODE "")
-### set(python_install_config ${PROJECT_BINARY_DIR}/CMakeFiles/PythonConfig.cmake)
-### configure_package_config_file(
-###     cmake/PythonConfig.cmake.in
-###     ${python_install_config}
-###     INSTALL_DESTINATION ${CMAKE_INSTALL_PREFIX}/${CONFIG_INSTALL_DIR}
-###     PATH_VARS CONFIG_DIR_CONFIG INCLUDE_DIR_CONFIG
-###     NO_CHECK_REQUIRED_COMPONENTS_MACRO
-### )
-### 
-### # Configure 'PythonTargets.cmake' and 'PythonConfigVersion.cmake
-### get_property(PYTHON_TARGETS GLOBAL PROPERTY PYTHON_TARGETS)
-### export(TARGETS ${PYTHON_TARGETS} APPEND FILE ${CONFIG_BUILD_DIR}/PythonTargets.cmake)
-
-### set(python_config_version ${CONFIG_BUILD_DIR}/PythonConfigVersion.cmake)
-### write_basic_package_version_file(
-###     ${python_config_version}
-###     VERSION ${PY_VERSION}
-###     COMPATIBILITY SameMajorVersion
-### )
-### 
-### if(INSTALL_DEVELOPMENT)
-###     # Install 'PythonTargets.cmake', 'PythonConfig.cmake' and 'PythonConfigVersion.cmake
-###     install(EXPORT PythonTargets
-###         FILE PythonTargets.cmake
-###         DESTINATION ${CONFIG_INSTALL_DIR} COMPONENT Development)
-### 
-###     install(
-###         FILES ${python_install_config} ${python_config_version}
-###         DESTINATION ${CONFIG_INSTALL_DIR} COMPONENT Development
-###     )
-### endif()
-### 
-### endif()
+endif()
 
 # Install License
 set(license_destination ${PYTHONHOME})
