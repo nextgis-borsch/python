@@ -305,18 +305,18 @@ set(LIBPYTHON python${LIBPYTHON_VERSION})
 include(cmake/ConfigureChecks.cmake)
 
 # Set PYTHONHOME
-set(LIBDIR "Lib") # See Lib/distutils/sysconfig.py - function 'get_python_lib'
-if(UNIX)
+# set(LIBDIR "Lib") # See Lib/distutils/sysconfig.py - function 'get_python_lib'
+# if(UNIX)
     set(LIBDIR "lib")
-endif()
+# endif()
 if(USE_LIB64)
     set_property(GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS ON)
     set(LIBDIR "lib64")
 endif()
 set(PYTHONHOME "${LIBDIR}")
-if(UNIX)
+# if(UNIX)
     set(PYTHONHOME "${PYTHONHOME}/${LIBPYTHON}")
-endif()
+# endif()
 
 # Install tree directory
 set(BIN_INSTALL_DIR bin)                         # Contains the python executable
