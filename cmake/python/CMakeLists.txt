@@ -46,6 +46,16 @@ if(WIN32)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different ${SRC_DIR}/PC/pyconfig.h ${BIN_BUILD_DIR}/${CMAKE_CFG_INTDIR}/PC/pyconfig.h
         COMMENT "Copying 'pyconfig.h' to '${BIN_INSTALL_DIR}/${CMAKE_CFG_INTDIR}/PC'"
         )
+
+    # Only works on external prebuild dlls
+    file(GLOB_RECURSE IMPORTED_WIN_DLLS ${CMAKE_BINARY_DIR}/third-party/*.dll)
+    message(STATUS "IMPORTED_WIN_DLLS: ${IMPORTED_WIN_DLLS}")
+    foreach(IMPORTED_WIN_DLL ${IMPORTED_WIN_DLLS})
+        add_custom_command(TARGET python POST_BUILD
+                            COMMAND ${CMAKE_COMMAND} -E copy ${IMPORTED_WIN_DLL} $<TARGET_FILE_DIR:python>
+                            COMMENT "Copy ${IMPORTED_WIN_DLL} to python destination directory"
+                        )
+    endforeach()
 endif()
 
 if(UNIX AND PY_VERSION VERSION_GREATER "2.7.4")
