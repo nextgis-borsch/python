@@ -47,6 +47,8 @@ endif()
 
 if(USE_SYSTEM_EXPAT)
     find_anyproject(EXPAT REQUIRED)
+    set(EXPAT_INCLUDE_DIR ${EXPAT_INCLUDE_DIRS})
+    set(EXPAT_LIBRARY ${EXPAT_LIBRARIES})
 endif()
 
 if(IS_PY3 AND USE_SYSTEM_LIBMPDEC)
@@ -56,6 +58,8 @@ endif()
 
 if(USE_SYSTEM_OpenSSL)
     find_anyproject(OpenSSL REQUIRED)
+    set(OPENSSL_INCLUDE_DIR ${OPENSSL_INCLUDE_DIRS})
+    set(OPENSSL_LIBRARY ${OPENSSL_LIBRARIES})
 endif()
 
 if(USE_SYSTEM_TCL)
@@ -69,6 +73,8 @@ endif()
 
 if(USE_SYSTEM_ZLIB)
     find_anyproject(ZLIB REQUIRED)
+    set(ZLIB_INCLUDE_DIR ${ZLIB_INCLUDE_DIRS})
+    set(ZLIB_LIBRARY ${ZLIB_LIBRARIES})
 endif()
 
 if(USE_SYSTEM_DB)
@@ -109,6 +115,7 @@ endif()
 find_anyproject(SQlite3 REQUIRED)
 if(SQLITE3_FOUND)
     set(SQLITE3_INCLUDE_PATH ${SQLITE3_INCLUDE_DIRS})
+    set(SQLITE3_INCLUDE_DIR ${SQLITE3_INCLUDE_DIRS})
     set(SQLITE3_LIBRARY ${SQLITE3_LIBRARIES})
 endif()
 

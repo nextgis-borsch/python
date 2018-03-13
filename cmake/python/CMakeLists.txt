@@ -49,7 +49,6 @@ if(WIN32)
 
     # Only works on external prebuild dlls
     file(GLOB_RECURSE IMPORTED_WIN_DLLS ${CMAKE_BINARY_DIR}/third-party/*.dll)
-    message(STATUS "IMPORTED_WIN_DLLS: ${IMPORTED_WIN_DLLS}")
     foreach(IMPORTED_WIN_DLL ${IMPORTED_WIN_DLLS})
         add_custom_command(TARGET python POST_BUILD
                             COMMAND ${CMAKE_COMMAND} -E copy ${IMPORTED_WIN_DLL} $<TARGET_FILE_DIR:python>

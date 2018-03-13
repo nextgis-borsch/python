@@ -22,8 +22,6 @@
 
 function(check_version major minor rev)
 
-    # parse the version number from expat.h and include in
-    # major, minor and rev parameters
     set(VERSION_FILE ${CMAKE_CURRENT_SOURCE_DIR}/cmake/util.cmake)
 
     set(_MAJOR_VERSION 2)
