@@ -333,7 +333,7 @@ list(APPEND unittests "test_softspace")
 list(APPEND unittests "test_sort")
 list(APPEND unittests "test_sqlite")
 # list(APPEND unittests "test_ssl") # Timeout
-list(APPEND unittests "test_startfile")
+# list(APPEND unittests "test_startfile")
 list(APPEND unittests "test_str")
 list(APPEND unittests "test_strftime")
 list(APPEND unittests "test_string")
