@@ -361,6 +361,10 @@ endif()
 set(EXTRA_PYTHONPATH "${PYTHONHOME}/site-packages" CACHE STRING
     "A colon (:) separated list of extra paths to add to the PYTHONPATH")
 
+if(WIN32)
+    string(REPLACE "/" "\\\\" EXTRA_PYTHONPATH ${EXTRA_PYTHONPATH})
+endif()
+
 # Configure 'pyconfig.h'
 if(UNIX)
     set(PYCONFIG_BUILD_DIR ${BIN_BUILD_DIR})
