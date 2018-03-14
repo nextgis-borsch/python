@@ -337,9 +337,9 @@ if(INSTALL_WINDOWS_TRADITIONAL)
     set(EXTENSION_INSTALL_DIR DLLs)
 endif()
 set(INCLUDE_INSTALL_DIR include/python${LD_VERSION})
-if(MSVC)
-    set(INCLUDE_INSTALL_DIR include)
-endif()
+# if(MSVC)
+#     set(INCLUDE_INSTALL_DIR include)
+# endif()
 # Build tree directory
 set(BIN_BUILD_DIR ${PROJECT_BINARY_DIR}/bin)
 set(CONFIG_BUILD_DIR ${PROJECT_BINARY_DIR}/${CONFIG_INSTALL_DIR})
@@ -358,7 +358,7 @@ if(WIN32)
     set(LIBPYTHON_STATIC_ARCHIVEDIR static-${ARCHIVEDIR})
 endif()
 
-set(EXTRA_PYTHONPATH "" CACHE STRING
+set(EXTRA_PYTHONPATH "${PYTHONHOME}/site-packages" CACHE STRING
     "A colon (:) separated list of extra paths to add to the PYTHONPATH")
 
 # Configure 'pyconfig.h'
