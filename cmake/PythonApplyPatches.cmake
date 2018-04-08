@@ -90,11 +90,11 @@ function(_apply_patches _subdir)
 endfunction()
 
 set(_py_version ${PY_VERSION})
-if("${PY_VERSION}" VERSION_LESS "3.0" AND
-    ("${PY_VERSION}" VERSION_EQUAL "2.7.13" OR "${PY_VERSION}" VERSION_GREATER "2.7.13"))
-  set(_py_version "2.7.13")
-  message(STATUS "Using ${_py_version} patches for 2.7.13 <= PY_VERSION < 3.0.0")
-endif()
+# if("${PY_VERSION}" VERSION_LESS "3.0" AND
+#     ("${PY_VERSION}" VERSION_EQUAL "2.7.13" OR "${PY_VERSION}" VERSION_GREATER "2.7.13"))
+#   set(_py_version "2.7.13")
+#   message(STATUS "Using ${_py_version} patches for 2.7.13 <= PY_VERSION < 3.0.0")
+# endif()
 
 # Apply patches
 _apply_patches("${PY_VERSION_MAJOR}.${PY_VERSION_MINOR}")
