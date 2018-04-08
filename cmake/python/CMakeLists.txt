@@ -46,36 +46,34 @@ if(WIN32)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different ${SRC_DIR}/PC/pyconfig.h ${BIN_BUILD_DIR}/${CMAKE_CFG_INTDIR}/PC/pyconfig.h
         COMMENT "Copying 'pyconfig.h' to '${BIN_INSTALL_DIR}/${CMAKE_CFG_INTDIR}/PC'"
         )
-
-    # Only works on external prebuild dlls
-    file(GLOB_RECURSE IMPORTED_WIN_DLLS ${CMAKE_BINARY_DIR}/third-party/*.dll)
-    foreach(IMPORTED_WIN_DLL ${IMPORTED_WIN_DLLS})
-        add_custom_command(TARGET python POST_BUILD
-                            COMMAND ${CMAKE_COMMAND} -E copy ${IMPORTED_WIN_DLL} $<TARGET_FILE_DIR:python>
-                            COMMENT "Copy ${IMPORTED_WIN_DLL} to python destination directory"
-                        )
-    endforeach()
 endif()
 
 if(UNIX AND PY_VERSION VERSION_GREATER "2.7.4")
     # Setup landmark allowing to run the interpreter from a build tree. See 'getpath.c' for details.
+    set(_sysconfigdata_py "_sysconfigdata.py")
+    if("${PY_VERSION}" VERSION_EQUAL "3.6.0" OR "${PY_VERSION}" VERSION_GREATER "3.6.0")
+        # XXX Add support for _PYTHON_SYSCONFIGDATA_NAME env. variable
+        set(MULTIARCH "")
+        set(_sysconfigdata_py "_sysconfigdata_${ABIFLAGS}_${PY_PLATFORM}_${MULTIARCH}.py")
+    endif()
     add_custom_command(
-        OUTPUT ${BIN_BUILD_DIR}/pybuilddir.txt ${EXTENSION_BUILD_DIR}/_sysconfigdata.py
+        OUTPUT ${BIN_BUILD_DIR}/pybuilddir.txt ${EXTENSION_BUILD_DIR}/${_sysconfigdata_py}
         COMMAND ${PYTHON_WRAPPER_COMMAND}
           ${CMAKE_CROSSCOMPILING_EMULATOR} $<TARGET_FILE:python> -E -S -m sysconfig --generate-posix-vars
         COMMAND ${CMAKE_COMMAND}
           -DBIN_BUILD_DIR:PATH=${BIN_BUILD_DIR}
+          -DSYSCONFIGDATA_PY:STRING=${_sysconfigdata_py}
           -DPYTHON_BINARY_DIR:PATH=${PROJECT_BINARY_DIR}
           -DEXTENSION_INSTALL_DIR:PATH=${EXTENSION_INSTALL_DIR}
           -P ${PROJECT_SOURCE_DIR}/cmake/UpdateSysconfig.cmake
-        COMMENT "Relocate _sysconfigdata.py and update pybuilddir.txt"
+        COMMENT "Relocate ${_sysconfigdata_py} and update pybuilddir.txt"
         WORKING_DIRECTORY ${BIN_BUILD_DIR}
         DEPENDS python
         )
     add_custom_target(update_sysconfig ALL
-        DEPENDS ${BIN_BUILD_DIR}/pybuilddir.txt ${EXTENSION_BUILD_DIR}/_sysconfigdata.py
+        DEPENDS ${BIN_BUILD_DIR}/pybuilddir.txt ${EXTENSION_BUILD_DIR}/${_sysconfigdata_py}
         )
-    install(FILES ${EXTENSION_BUILD_DIR}/_sysconfigdata.py
+    install(FILES ${EXTENSION_BUILD_DIR}/${_sysconfigdata_py}
         DESTINATION ${PYTHONHOME}/)
 endif()
 

@@ -13,3 +13,4 @@ cmake/python,cmake/python,,txt
 patches,patches,,rst
 patches/2.7.13/Windows-MSVC/1900,patches/2.7.13/Windows-MSVC/1900,,patch
 patches/3.5,patches/3.5,,patch
+patches/3.6,patches/3.6,,patch
