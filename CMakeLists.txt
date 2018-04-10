@@ -270,8 +270,10 @@ string(REGEX REPLACE "[0-9]\\.[0-9]+\\.([0-9]+)[+]?" "\\1"
 set(PY_VERSION "${PY_VERSION_MAJOR}.${PY_VERSION_MINOR}.${PY_VERSION_PATCH}")
 message(STATUS "PY_VERSION: ${PY_VERSION}")
 if(NOT DEFINED _download_${PY_VERSION}_md5)
-    message(FATAL_ERROR "error: unknown python version '${PY_VERSION}'. Valid version should match '2.7.[3-13]' or '3.5.[1-2]'")
+    message(WARNING "warning: selected python version '${PY_VERSION}' is not tested. Tested versions match '2.7.[3-14]' or '3.5.[1-5]' or `3.6.[0-4]`")
 endif()
+
+set(PYTHON_VERSION "${PY_VERSION}" CACHE STRING "The version of Python to build." FORCE)
 
 # Apply patches
 option(PYTHON_APPLY_PATCHES "Apply patches" ON)
@@ -322,10 +324,10 @@ include(cmake/ConfigureChecks.cmake)
 # if(UNIX)
     set(LIBDIR "lib")
 # endif()
-if(USE_LIB64)
-    set_property(GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS ON)
-    set(LIBDIR "lib64")
-endif()
+# if(USE_LIB64)
+#     set_property(GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS ON)
+#     set(LIBDIR "lib64")
+# endif()
 set(PYTHONHOME "${LIBDIR}")
 # if(UNIX)
     set(PYTHONHOME "${PYTHONHOME}/${LIBPYTHON}")
@@ -366,12 +368,12 @@ set(LIBPYTHON_LIBDIR ${LIBDIR})
 set(LIBPYTHON_ARCHIVEDIR ${LIBDIR})
 set(LIBPYTHON_STATIC_ARCHIVEDIR ${LIBDIR})
 if(WIN32)
-    set(LIBPYTHON_LIBDIR ${BIN_INSTALL_DIR})
+    # set(LIBPYTHON_LIBDIR ${BIN_INSTALL_DIR})
     set(LIBPYTHON_ARCHIVEDIR ${ARCHIVEDIR})
     set(LIBPYTHON_STATIC_ARCHIVEDIR static-${ARCHIVEDIR})
 endif()
 
-set(EXTRA_PYTHONPATH "${PYTHONHOME}/site-packages" CACHE STRING
+set(EXTRA_PYTHONPATH "" CACHE STRING
     "A colon (:) separated list of extra paths to add to the PYTHONPATH")
 
 if(WIN32)
