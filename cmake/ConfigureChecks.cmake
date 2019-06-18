@@ -33,8 +33,8 @@ include(FindAnyProject)
 # Find any dependencies
 if(USE_SYSTEM_BZip2)
     find_anyproject(BZip2 REQUIRED NAMES BZ2 bz2 libzip2)
-    set(BZIP2_INCLUDE_DIR ${BZ2_INCLUDE_DIRS})
-    set(BZIP2_LIBRARIES ${BZ2_LIBRARIES})
+    set(BZIP2_INCLUDE_DIR ${BZIP2_INCLUDE_DIRS})
+    set(BZIP2_LIBRARIES ${BZIP2_LIBRARIES})
 endif()
 
 if(USE_SYSTEM_Curses)
