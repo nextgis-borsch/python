@@ -561,6 +561,13 @@ if(BUILD_LIBPYTHON_SHARED)
         add_dependencies(${targetname} generate_libpython3stub_lib)
 
         target_link_libraries(${targetname} ${python3stub_lib})
+
+        file(GLOB_RECURSE IMPORTED_ZLIB_DLL ${CMAKE_BINARY_DIR}/third-party/zlib1.dll)
+        add_custom_command(TARGET libpython-shared
+                            PRE_BUILD
+                            COMMAND ${CMAKE_COMMAND} -E copy ${IMPORTED_ZLIB_DLL} $<TARGET_FILE_DIR:_freeze_importlib>
+                            COMMENT "Copy ${IMPORTED_WIN_DLL} to libpython-shared destination"
+                            )
     endif()
 
     if(IS_PY3 AND UNIX AND NOT APPLE)
