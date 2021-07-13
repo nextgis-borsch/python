@@ -9,6 +9,17 @@ endif()
 
 project(Python C ASM)
 
+if(NOT DEFINED PACKAGE_VENDOR)
+    set(PACKAGE_VENDOR NextGIS)
+endif()
+
+if(NOT DEFINED PACKAGE_BUGREPORT)
+    set(PACKAGE_BUGREPORT info@nextgis.com)
+endif()
+
+set(PACKAGE_NAME python)
+string(TOUPPER ${PACKAGE_NAME} PACKAGE_UPPER_NAME)
+
 # Some init settings
 set(CMAKE_COLOR_MAKEFILE ON)
 # Set path to additional CMake modules
