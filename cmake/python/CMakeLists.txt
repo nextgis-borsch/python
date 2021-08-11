@@ -46,15 +46,15 @@ if(WIN32)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different ${SRC_DIR}/PC/pyconfig.h ${BIN_BUILD_DIR}/${CMAKE_CFG_INTDIR}/PC/pyconfig.h
         COMMENT "Copying 'pyconfig.h' to '${BIN_INSTALL_DIR}/${CMAKE_CFG_INTDIR}/PC'"
         )
-        
-    if (BUILD_LIBPYTHON_SHARED)
-        file(GLOB_RECURSE IMPORTED_ZLIB_DLL ${CMAKE_BINARY_DIR}/third-party/zlib1.dll)
+
+    file(GLOB_RECURSE IMPORTED_WIN_DLLS ${CMAKE_BINARY_DIR}/third-party/*.dll)
+    foreach(IMPORTED_WIN_DLL ${IMPORTED_WIN_DLLS})
         add_custom_command(TARGET python
-                            PRE_BUILD
-                            COMMAND ${CMAKE_COMMAND} -E copy ${IMPORTED_ZLIB_DLL} $<TARGET_FILE_DIR:python>
+                            POST_BUILD
+                            COMMAND ${CMAKE_COMMAND} -E copy ${IMPORTED_WIN_DLL} $<TARGET_FILE_DIR:python>
                             COMMENT "Copy ${IMPORTED_WIN_DLL} to python destination"
                             )
-    endif()
+    endforeach()
 endif()
 
 if(UNIX AND PY_VERSION VERSION_GREATER "2.7.4")

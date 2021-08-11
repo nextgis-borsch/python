@@ -1,12 +1,5 @@
 cmake_minimum_required(VERSION 2.8.12 FATAL_ERROR)
 
-if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
-    set(CMAKE_CONFIGURATION_TYPES Release CACHE STRING "Release configuration" FORCE)
-    set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
-    # Set the possible values of build type for cmake-gui
-    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Release")
-endif()
-
 project(Python C ASM)
 
 if(NOT DEFINED PACKAGE_VENDOR)
@@ -34,7 +27,12 @@ set(VERSION ${PY_VERSION})
 
 report_version(${PROJECT_NAME} ${VERSION})
 
-
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_CONFIGURATION_TYPES Release CACHE STRING "Release configuration" FORCE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
+    # Set the possible values of build type for cmake-gui
+    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Release")
+endif()
 
 if(APPLE)
   set(_msg "Checking which MACOSX_DEPLOYMENT_TARGET to use")
@@ -43,6 +41,7 @@ if(APPLE)
   set(MACOSX_DEPLOYMENT_TARGET ${CMAKE_OSX_DEPLOYMENT_TARGET})
   message(STATUS "${_msg} - ${MACOSX_DEPLOYMENT_TARGET}")
 endif()
+
 
 
 if(POLICY CMP0042)
@@ -223,9 +222,6 @@ set(_download_3.6.1_md5 "2d0fc9f3a5940707590e07f03ecb08b9")
 set(_download_3.6.2_md5 "e1a36bfffdd1d3a780b1825daf16e56c")
 set(_download_3.6.3_md5 "e9180c69ed9a878a4a8a3ab221e32fa9")
 set(_download_3.6.4_md5 "9de6494314ea199e3633211696735f65")
-set(_download_3.6.5_md5 "ab25d24b1f8cc4990ade979f6dc37883")
-set(_download_3.6.6_md5 "9a080a86e1a8d85e45eee4b1cd0a18a2")
-set(_download_3.6.7_md5 "c83551d83bf015134b4b2249213f3f85")
 
 set(_extracted_dir "Python-${PY_VERSION}")
 
@@ -302,11 +298,6 @@ set(IS_PY2 1)
 if(PY_VERSION_MAJOR VERSION_GREATER 2)
     set(IS_PY3 1)
     set(IS_PY2 0)
-endif()
-
-# Enable CXX language to support building of _distutils_findvs extension
-if(WIN32 AND IS_PY3)
-  enable_language(CXX)
 endif()
 
 # Options depending of the python version

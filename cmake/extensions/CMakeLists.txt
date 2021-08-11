@@ -133,37 +133,10 @@ add_python_extension(xxsubtype BUILTIN REQUIRES IS_PY3 SOURCES xxsubtype.c)
 # builtin module avoids some bootstrapping problems and reduces overhead.
 add_python_extension(zipimport ALWAYS_BUILTIN REQUIRES IS_PY3 SOURCES zipimport.c)
 
-# Python 3.6
-if(PY_VERSION VERSION_EQUAL "3.6" OR PY_VERSION VERSION_GREATER "3.6")
-    set(_blake2_SOURCES
-        _blake2/blake2module.c
-        _blake2/blake2b_impl.c
-        _blake2/blake2s_impl.c
-    )
-    add_python_extension(_blake2 ${WIN32_BUILTIN} SOURCES ${_blake2_SOURCES})
-    add_python_extension(_sha3 ${WIN32_BUILTIN} SOURCES _sha3/sha3module.c)
-endif()
-
 # UNIX-only extensions
 add_python_extension(fcntl REQUIRES UNIX SOURCES fcntlmodule.c)
 add_python_extension(grp REQUIRES UNIX SOURCES grpmodule.c)
-
-set(nis_REQUIRES UNIX HAVE_LIBNSL)
-set(nis_LIBRARIES ${HAVE_LIBNSL})
-set(nis_INCLUDEDIRS )
-if(TIRPC_LIBRARY AND TIRPC_RPC_INCLUDE_PATH)
-    # if rpc.h is provided by libtirpc (instead of being provided by glibc). See python/cpython#5137
-    list(APPEND nis_REQUIRES )
-    list(APPEND nis_LIBRARIES ${TIRPC_LIBRARY})
-    list(APPEND nis_INCLUDEDIRS ${TIRPC_RPC_INCLUDE_PATH}/../)
-endif()
-add_python_extension(nis
-    REQUIRES ${nis_REQUIRES}
-    SOURCES nismodule.c
-    LIBRARIES ${nis_LIBRARIES}
-    INCLUDEDIRS ${nis_INCLUDEDIRS}
-)
-
+add_python_extension(nis REQUIRES UNIX HAVE_LIBNSL SOURCES nismodule.c LIBRARIES ${HAVE_LIBNSL})
 add_python_extension(posix REQUIRES UNIX BUILTIN SOURCES posixmodule.c)
 add_python_extension(pwd REQUIRES UNIX BUILTIN SOURCES pwdmodule.c) # this is needed to find out the user's home dir if $HOME is not set
 add_python_extension(resource REQUIRES UNIX SOURCES resource.c)
@@ -209,13 +182,6 @@ add_python_extension(_overlapped
     LIBRARIES ws2_32
 )
 add_python_extension(_winapi REQUIRES WIN32 IS_PY3 BUILTIN SOURCES ${SRC_DIR}/Modules/_winapi.c)
-
-set(HAS_DISTUTILS_FINDVS_MODULE_SRC 0)
-set(module_src ${SRC_DIR}/PC/_findvs.cpp)
-if(EXISTS ${module_src})
-  set(HAS_DISTUTILS_FINDVS_MODULE_SRC 1)
-endif()
-add_python_extension(_distutils_findvs REQUIRES WIN32 IS_PY3 HAS_DISTUTILS_FINDVS_MODULE_SRC SOURCES ${module_src})
 
 # Multiprocessing is different on unix and windows
 if(UNIX)
@@ -674,7 +640,7 @@ add_python_extension(_sqlite3
             _sqlite/row.c
             _sqlite/statement.c
             _sqlite/util.c
-    DEFINITIONS MODULE_NAME="sqlite3" SQLITE_OMIT_LOAD_EXTENSION=1
+    DEFINITIONS MODULE_NAME="sqlite3"
     INCLUDEDIRS ${SQLITE3_INCLUDE_PATH}
     LIBRARIES ${SQLITE3_LIBRARY}
 )
