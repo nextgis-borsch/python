@@ -7,7 +7,7 @@ index a7d64ba..bb4433b 100644
  #ifdef MS_WINDOWS
          fflush(fp);
 -        if (_lseeki64(fileno(fp), 0, 2) == -1)
-+        if (_fseeki64(fp, 0, 2) == -1)
++        if (_fseeki64(fp, 0, 2) != 0)
              return -1;
  #else
          if (fseek(fp, 0, SEEK_END) != 0)
