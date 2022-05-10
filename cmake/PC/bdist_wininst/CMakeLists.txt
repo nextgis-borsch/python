@@ -51,6 +51,7 @@ set(_have_wininst_in_source 0)
 set(_msg "bdist_wininst: Looking for executable named '${WININST_EXE_NAME}${CMAKE_EXECUTABLE_SUFFIX}' in source tree")
 message(STATUS "${_msg}")
 set(_expected_wininst ${SRC_DIR}/${WININST_INSTALL_DIR}/${WININST_EXE_NAME}${CMAKE_EXECUTABLE_SUFFIX})
+
 if(EXISTS ${_expected_wininst})
   set(_have_wininst_in_source 1)
   message(STATUS "${_msg} - found \"${_expected_wininst}\"")

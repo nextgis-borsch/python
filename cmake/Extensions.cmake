@@ -9,7 +9,7 @@
 #     [ DEFINITIONS define1 define2 ... ]
 #     [ LIBRARIES lib1 lib2 ... ]
 #     [ INCLUDEDIRS dir1 dir2 ... ]
-#     [ BUILTIN ]
+#     [ BUILTIN | ALWAYS_BUILTIN | NEVER_BUILTIN ]
 # )
 #
 # extension_name: the name of the library without any .so extension.
@@ -27,6 +27,8 @@
 #              BUILTIN_[extension_name]=OFF.
 # ALWAYS_BUILTIN: if this is set the module will always be compiled statically into
 #                 libpython.
+# NEVER_BUILTIN: if this is set the module will never be compiled statically into
+#                libpython. If WITH_STATIC_DEPENDENCIES is ON, extension is disabled.
 # NO_INSTALL:   do not install or package the extension.
 #
 # Two user-settable options are created for each extension added:
@@ -43,7 +45,7 @@
 # options ENABLE_FOO and BUILTIN_FOO.
 
 function(add_python_extension name)
-    set(options BUILTIN ALWAYS_BUILTIN NO_INSTALL)
+    set(options BUILTIN ALWAYS_BUILTIN NEVER_BUILTIN NO_INSTALL)
     set(oneValueArgs)
     set(multiValueArgs REQUIRES SOURCES DEFINITIONS LIBRARIES INCLUDEDIRS)
     cmake_parse_arguments(ADD_PYTHON_EXTENSION
@@ -63,17 +65,28 @@ function(add_python_extension name)
     # libraries that we might want to link against (eg. readline)
     set(target_name extension_${pretty_name})
 
+    set(enable_default ON)
+    if(ADD_PYTHON_EXTENSION_NEVER_BUILTIN AND WITH_STATIC_DEPENDENCIES)
+        set(enable_default OFF)
+    endif()
+
     # Add options that the user can set to control whether this extension is
     # compiled, and whether it is compiled in to libpython itself.
     option(ENABLE_${upper_name}
            "Controls whether the \"${name}\" extension will be built"
-           ON
+           ${enable_default}
     )
     if(ENABLE_${upper_name})
         mark_as_advanced(FORCE ENABLE_${upper_name})
     else()
         mark_as_advanced(CLEAR ENABLE_${upper_name})
     endif()
+
+   if(ADD_PYTHON_EXTENSION_NEVER_BUILTIN AND WITH_STATIC_DEPENDENCIES AND ENABLE_${upper_name})
+       set(reason " because extension is declared as NEVER_BUILTIN and WITH_STATIC_DEPENDENCIES is ON")
+       set(ENABLE_${upper_name} OFF CACHE BOOL "Forced to OFF${reason}" FORCE)
+       message(STATUS "Setting ENABLE_${upper_name} to OFF${reason}")
+   endif()
 
     # Check all the things we require are found.
     set(missing_deps "")
@@ -84,7 +97,11 @@ function(add_python_extension name)
         endif()
     endforeach()
 
-    if(NOT ADD_PYTHON_EXTENSION_ALWAYS_BUILTIN)
+    if(ADD_PYTHON_EXTENSION_NEVER_BUILTIN)
+        set(BUILTIN_${upper_name} 0)
+    elseif(ADD_PYTHON_EXTENSION_ALWAYS_BUILTIN)
+        set(BUILTIN_${upper_name} 1)
+    else()
         # Add options that the extention is either external to libpython or
         # builtin.  These will be marked as advanced unless different from default
         # values
@@ -106,14 +123,6 @@ function(add_python_extension name)
                 mark_as_advanced(CLEAR BUILTIN_${upper_name})
             endif()
         endif()
-
-        # XXX _ctypes_test and _testcapi should always be shared
-        if(${name} STREQUAL "_ctypes_test" OR ${name} STREQUAL "_testcapi")
-            unset(BUILTIN_${upper_name} CACHE)
-            set(BUILTIN_${upper_name} 0)
-        endif()
-    else()
-        set(BUILTIN_${upper_name} 1)
     endif()
 
     # If any dependencies were missing don't include this extension.
@@ -144,6 +153,9 @@ function(add_python_extension name)
     endforeach()
 
     if(BUILTIN_${upper_name})
+        if(PY_VERSION VERSION_GREATER_EQUAL "3.8")
+            list(APPEND ADD_PYTHON_EXTENSION_DEFINITIONS Py_BUILD_CORE_BUILTIN)
+        endif()
         # This will be compiled into libpython instead of as a separate library
         set_property(GLOBAL APPEND PROPERTY builtin_extensions ${name})
         set_property(GLOBAL APPEND PROPERTY extension_${name}_sources ${absolute_sources})
@@ -154,10 +166,12 @@ function(add_python_extension name)
         # Extensions cannot be built against a static libpython on windows
     else()
 
-        # XXX Uncomment when CMake >= 2.8.8 is required
-        #add_library(${target_name} SHARED ${absolute_sources})
-        #set_target_properties(${target_name} PROPERTIES
-        #    INCLUDE_DIRECTORIES ${ADD_PYTHON_EXTENSION_INCLUDEDIRS})
+        add_library(${target_name} SHARED ${absolute_sources})
+        target_include_directories(${target_name} PUBLIC "${ADD_PYTHON_EXTENSION_INCLUDEDIRS}")
+
+        if(PY_VERSION VERSION_GREATER_EQUAL "3.8")
+            list(APPEND ADD_PYTHON_EXTENSION_DEFINITIONS Py_BUILD_CORE_MODULE)
+        endif()
 
         if(WIN32)
             string(REGEX MATCH "Py_LIMITED_API" require_limited_api "${ADD_PYTHON_EXTENSION_DEFINITIONS}")
@@ -168,20 +182,7 @@ function(add_python_extension name)
             endif()
         endif()
 
-        # XXX When CMake >= 2.8.8 is required, remove the section below
-        #     configuring and using 'add_python_extension_CMakeLists.txt.in'.
-        file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${target_name}-src)
-        configure_file(
-            ${PROJECT_SOURCE_DIR}/cmake/add_python_extension_CMakeLists.txt.in
-            ${CMAKE_CURRENT_BINARY_DIR}/${target_name}-src/CMakeLists.txt
-        )
-        add_subdirectory(
-            ${CMAKE_CURRENT_BINARY_DIR}/${target_name}-src
-            ${CMAKE_CURRENT_BINARY_DIR}/${target_name}
-        )
-
-        # XXX Uncomment when CMake >= 2.8.8 is required
-        #target_link_libraries(${target_name} ${ADD_PYTHON_EXTENSION_LIBRARIES})
+        target_link_libraries(${target_name} ${ADD_PYTHON_EXTENSION_LIBRARIES})
 
         if(WIN32)
             #list(APPEND ADD_PYTHON_EXTENSION_DEFINITIONS Py_NO_ENABLE_SHARED)
@@ -210,24 +211,21 @@ function(add_python_extension name)
             OUTPUT_NAME "${name}"
             PREFIX ""
         )
-        if(HAVE_POSITION_INDEPENDENT_CODE)
-            set_target_properties(${target_name} PROPERTIES
-                POSITION_INDEPENDENT_CODE ON
-            )
-        endif()
+        set_target_properties(${target_name} PROPERTIES
+            POSITION_INDEPENDENT_CODE ON
+        )
 
         if(ADD_PYTHON_EXTENSION_DEFINITIONS)
             set_target_properties(${target_name} PROPERTIES
                 COMPILE_DEFINITIONS "${ADD_PYTHON_EXTENSION_DEFINITIONS}")
         endif()
 
-        # XXX Uncomment when CMake >= 2.8.8 is required
-        #if(NOT ADD_PYTHON_EXTENSION_NO_INSTALL)
-        #    install(TARGETS ${target_name}
-        #            ARCHIVE DESTINATION ${ARCHIVEDIR}
-        #            LIBRARY DESTINATION ${EXTENSION_INSTALL_DIR}
-        #            RUNTIME DESTINATION ${EXTENSION_INSTALL_DIR})
-        #endif()
+        if(NOT ADD_PYTHON_EXTENSION_NO_INSTALL)
+            install(TARGETS ${target_name}
+                    ARCHIVE DESTINATION ${ARCHIVEDIR}
+                    LIBRARY DESTINATION ${EXTENSION_INSTALL_DIR}
+                    RUNTIME DESTINATION ${EXTENSION_INSTALL_DIR})
+        endif()
     endif()
 endfunction()
 

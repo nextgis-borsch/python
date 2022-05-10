@@ -10,6 +10,8 @@ set_property(
     TARGET python
     PROPERTY RUNTIME_OUTPUT_DIRECTORY ${BIN_BUILD_DIR}
     )
+target_compile_definitions(python PRIVATE Py_BUILD_CORE)
+add_definitions(-DPy_BUILD_CORE)
 
 # Link against the shared libpython if it was built, otherwise use the static
 # version.
@@ -46,21 +48,12 @@ if(WIN32)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different ${SRC_DIR}/PC/pyconfig.h ${BIN_BUILD_DIR}/${CMAKE_CFG_INTDIR}/PC/pyconfig.h
         COMMENT "Copying 'pyconfig.h' to '${BIN_INSTALL_DIR}/${CMAKE_CFG_INTDIR}/PC'"
         )
-        
-    if (BUILD_LIBPYTHON_SHARED)
-        file(GLOB_RECURSE IMPORTED_ZLIB_DLL ${CMAKE_BINARY_DIR}/third-party/zlib1.dll)
-        add_custom_command(TARGET python
-                            PRE_BUILD
-                            COMMAND ${CMAKE_COMMAND} -E copy ${IMPORTED_ZLIB_DLL} $<TARGET_FILE_DIR:python>
-                            COMMENT "Copy ${IMPORTED_WIN_DLL} to python destination"
-                            )
-    endif()
 endif()
 
 if(UNIX AND PY_VERSION VERSION_GREATER "2.7.4")
     # Setup landmark allowing to run the interpreter from a build tree. See 'getpath.c' for details.
     set(_sysconfigdata_py "_sysconfigdata.py")
-    if("${PY_VERSION}" VERSION_EQUAL "3.6.0" OR "${PY_VERSION}" VERSION_GREATER "3.6.0")
+    if("${PY_VERSION}" VERSION_GREATER_EQUAL "3.6.0")
         # XXX Add support for _PYTHON_SYSCONFIGDATA_NAME env. variable
         set(MULTIARCH "")
         set(_sysconfigdata_py "_sysconfigdata_${ABIFLAGS}_${PY_PLATFORM}_${MULTIARCH}.py")

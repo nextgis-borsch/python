@@ -1,4 +1,5 @@
 add_definitions(-DPy_BUILD_CORE)
+add_definitions(-DPy_BUILD_CORE_BUILTIN)
 add_definitions(-DNDEBUG)
 
 set(MODULE_SOURCES # Equivalent to MODULE_OBJS in Makefile.pre
@@ -62,21 +63,41 @@ elseif(WIN32)
         PROPERTY COMPILE_DEFINITIONS
             "LANDMARK=${_wide_char_modifier}\"${PYTHONHOME_ESCAPED}\\\\os.py\""
             "PYTHONPATH=${_wide_char_modifier}\"${PYTHONPATH}\""
+            "PY3_DLLNAME=\"python3$<$<CONFIG:Debug>:_d>\""
     )
 endif()
 
 set(PARSER_COMMON_SOURCES # Equivalent to POBJS in Makefile.pre
     ${SRC_DIR}/Parser/acceler.c
-    ${SRC_DIR}/Parser/bitset.c
-    ${SRC_DIR}/Parser/firstsets.c
     ${SRC_DIR}/Parser/grammar1.c
-    ${SRC_DIR}/Parser/grammar.c
     ${SRC_DIR}/Parser/listnode.c
-    ${SRC_DIR}/Parser/metagrammar.c
     ${SRC_DIR}/Parser/node.c
     ${SRC_DIR}/Parser/parser.c
-    ${SRC_DIR}/Parser/pgen.c
 )
+if(PY_VERSION VERSION_GREATER_EQUAL "3.9")
+    list(APPEND PARSER_COMMON_SOURCES
+        ${SRC_DIR}/Parser/pegen/pegen.c
+        ${SRC_DIR}/Parser/pegen/parse.c
+        ${SRC_DIR}/Parser/pegen/parse_string.c
+        ${SRC_DIR}/Parser/pegen/peg_api.c
+    )
+endif()
+if(PY_VERSION VERSION_GREATER_EQUAL "3.8")
+    list(APPEND PARSER_COMMON_SOURCES
+        ${SRC_DIR}/Parser/myreadline.c
+        ${SRC_DIR}/Parser/parsetok.c
+        ${SRC_DIR}/Parser/token.c
+        ${SRC_DIR}/Parser/tokenizer.c
+    )
+else()
+    list(APPEND PARSER_COMMON_SOURCES
+        ${SRC_DIR}/Parser/bitset.c
+        ${SRC_DIR}/Parser/firstsets.c
+        ${SRC_DIR}/Parser/grammar.c
+        ${SRC_DIR}/Parser/metagrammar.c
+        ${SRC_DIR}/Parser/pgen.c
+    )
+endif()
 
 set(OBJECT2_SOURCES
     ${SRC_DIR}/Objects/bufferobject.c
@@ -101,6 +122,11 @@ set(OBJECT3_SOURCES
 if(MSVC)
     list(APPEND OBJECT3_SOURCES
         ${SRC_DIR}/PC/invalid_parameter_handler.c
+    )
+endif()
+if(PY_VERSION VERSION_GREATER_EQUAL "3.7")
+    list(APPEND OBJECT3_SOURCES
+        ${SRC_DIR}/Objects/call.c
     )
 endif()
 
@@ -142,6 +168,17 @@ set(OBJECT_COMMON_SOURCES # Equivalent to OBJECT_OBJS in Makefile.pre
     ${SRC_DIR}/Objects/unicodeobject.c
     ${SRC_DIR}/Objects/weakrefobject.c
 )
+if(PY_VERSION VERSION_GREATER_EQUAL "3.8")
+    list(APPEND OBJECT_COMMON_SOURCES
+        ${SRC_DIR}/Objects/interpreteridobject.c
+        ${SRC_DIR}/Objects/picklebufobject.c
+    )
+endif()
+if(PY_VERSION VERSION_GREATER_EQUAL "3.9")
+    list(APPEND OBJECT_COMMON_SOURCES
+        ${SRC_DIR}/Objects/genericaliasobject.c
+    )
+endif()
 
 if(CMAKE_C_COMPILER_ID MATCHES GNU)
     foreach(filename class complex float int method string type unicode weakref)
@@ -181,7 +218,7 @@ elseif(WIN32)
 endif()
 
 set(THREAD_SOURCES )
-if(WITH_THREAD)
+if(WITH_THREAD OR PY_VERSION VERSION_GREATER_EQUAL "3.7")
     list(APPEND THREAD_SOURCES
         ${SRC_DIR}/Python/thread.c
     )
@@ -243,13 +280,33 @@ set(PYTHON_COMMON_SOURCES
     ${SRC_DIR}/Python/pystrcmp.c
     ${SRC_DIR}/Python/Python-ast.c
     ${SRC_DIR}/Python/pythonrun.c
-    ${SRC_DIR}/Python/random.c
     ${SRC_DIR}/Python/structmember.c
     ${SRC_DIR}/Python/symtable.c
     ${SRC_DIR}/Python/sysmodule.c
     ${SRC_DIR}/Python/traceback.c
     ${SRC_DIR}/Python/_warnings.c
 )
+if(PY_VERSION VERSION_GREATER_EQUAL "3.7")
+    list(APPEND PYTHON_COMMON_SOURCES
+        ${SRC_DIR}/Python/ast_opt.c
+        ${SRC_DIR}/Python/ast_unparse.c
+        ${SRC_DIR}/Python/bootstrap_hash.c
+        ${SRC_DIR}/Python/context.c
+        ${SRC_DIR}/Python/hamt.c
+        ${SRC_DIR}/Python/pathconfig.c
+    )
+else()
+    list(APPEND PYTHON_COMMON_SOURCES
+        ${SRC_DIR}/Python/random.c
+    )
+endif()
+if(PY_VERSION VERSION_GREATER_EQUAL "3.8")
+    list(APPEND PYTHON_COMMON_SOURCES
+        ${SRC_DIR}/Python/initconfig.c
+        ${SRC_DIR}/Python/preconfig.c
+    )
+endif()
+
 if(UNIX)
     list(APPEND PYTHON_COMMON_SOURCES
         ${SRC_DIR}/Python/frozenmain.c
@@ -276,26 +333,23 @@ if(UNIX OR MINGW)
 endif()
 
 list(APPEND MODULE_SOURCES
-    ${SRC_DIR}/Modules/_codecsmodule.c
-    ${SRC_DIR}/Modules/errnomodule.c
     ${SRC_DIR}/Modules/signalmodule.c
-    ${SRC_DIR}/Modules/_sre.c
-    ${SRC_DIR}/Modules/symtablemodule.c
-    ${SRC_DIR}/Modules/_weakref.c
-    ${SRC_DIR}/Modules/xxsubtype.c
-    ${SRC_DIR}/Modules/zipimport.c
 )
 
 set(LIBPYTHON_OMIT_FROZEN_SOURCES
     ${SRC_DIR}/Modules/getbuildinfo.c
-    ${SRC_DIR}/Parser/myreadline.c
-    ${SRC_DIR}/Parser/parsetok.c
-    ${SRC_DIR}/Parser/tokenizer.c
     ${MODULE_SOURCES}
     ${OBJECT_COMMON_SOURCES}
     ${PARSER_COMMON_SOURCES}
     ${PYTHON_COMMON_SOURCES}
 )
+if(PY_VERSION VERSION_LESS "3.8")
+    list(APPEND LIBPYTHON_OMIT_FROZEN_SOURCES
+        ${SRC_DIR}/Parser/myreadline.c
+        ${SRC_DIR}/Parser/parsetok.c
+        ${SRC_DIR}/Parser/tokenizer.c
+    )
+endif()
 
 # List of builtin extensions
 get_property(builtin_extensions GLOBAL PROPERTY builtin_extensions)
@@ -363,6 +417,12 @@ foreach(ext ${builtin_extensions})
     set(config_entries "${config_entries}    {\"${ext}\", ${init_prefix_${PY_VERSION_MAJOR}}${ext}},\n")
 endforeach()
 
+if(PY_VERSION VERSION_GREATER_EQUAL "3.7")
+    set(PyInit_imp "PyInit__imp")
+else()
+    set(PyInit_imp "PyInit_imp")
+endif()
+
 configure_file(
     ${PROJECT_SOURCE_DIR}/cmake/config_${PY_VERSION_MAJOR}.c.in
     ${PROJECT_BINARY_DIR}/CMakeFiles/config.c
@@ -375,7 +435,7 @@ set(LIBPYTHON_TARGET_LIBRARIES
 if(HAVE_LIBDL)
   list(APPEND LIBPYTHON_TARGET_LIBRARIES ${HAVE_LIBDL})
 endif()
-if(WITH_THREAD)
+if(WITH_THREAD OR PY_VERSION VERSION_GREATER_EQUAL "3.7")
     list(APPEND LIBPYTHON_TARGET_LIBRARIES ${CMAKE_THREAD_LIBS_INIT})
 endif()
 if(UNIX)
@@ -383,11 +443,14 @@ if(UNIX)
 endif()
 if(WIN32 AND IS_PY3)
     list(APPEND LIBPYTHON_TARGET_LIBRARIES ws2_32) # Required by signalmodule
-    if(PYTHON_VERSION VERSION_EQUAL "3.5" OR PYTHON_VERSION VERSION_GREATER "3.5")
+    if(PY_VERSION VERSION_GREATER_EQUAL "3.5")
         list(APPEND LIBPYTHON_TARGET_LIBRARIES version) # Required by sysmodule
     endif()
-    if(PYTHON_VERSION VERSION_EQUAL "3.6" OR PYTHON_VERSION VERSION_GREATER "3.6")
+    if(PY_VERSION VERSION_GREATER_EQUAL "3.6")
         list(APPEND LIBPYTHON_TARGET_LIBRARIES shlwapi) # Required by PC/getpathp
+    endif()
+    if(PY_VERSION VERSION_GREATER_EQUAL "3.9")
+        list(APPEND LIBPYTHON_TARGET_LIBRARIES pathcch)
     endif()
 endif()
 
@@ -409,14 +472,31 @@ set(LIBPYTHON_FROZEN_SOURCES
   ${SRC_DIR}/Python/importlib_external.h
   ${SRC_DIR}/Python/importlib.h
 )
+if(PY_VERSION VERSION_GREATER_EQUAL "3.8")
+  list(APPEND LIBPYTHON_FROZEN_SOURCES
+    ${SRC_DIR}/Python/importlib_zipimport.h
+  )
+endif()
+
+# Copy zlib1.dll
+if(WIN32 AND ZLIB_FOUND)
+    get_target_property(ZLIB_DLL ${ZLIB_LIBRARIES} IMPORTED_LOCATION_RELEASE)
+    add_custom_command(TARGET _freeze_importlib
+       POST_BUILD
+       COMMAND ${CMAKE_COMMAND} -E copy_if_different ${ZLIB_DLL} $<TARGET_FILE_DIR:_freeze_importlib>
+    )
+endif()
+        
 add_custom_command(
   OUTPUT ${LIBPYTHON_FROZEN_SOURCES}
   COMMAND
     ${CMAKE_CROSSCOMPILING_EMULATOR} $<TARGET_FILE:_freeze_importlib>
+      $<$<VERSION_GREATER_EQUAL:${PY_VERSION},3.8>:importlib._bootstrap_external>
       ${SRC_DIR}/Lib/importlib/_bootstrap_external.py
       ${SRC_DIR}/Python/importlib_external.h
   COMMAND
     ${CMAKE_CROSSCOMPILING_EMULATOR} $<TARGET_FILE:_freeze_importlib>
+      $<$<VERSION_GREATER_EQUAL:${PY_VERSION},3.8>:importlib._bootstrap>
       ${SRC_DIR}/Lib/importlib/_bootstrap.py
       ${SRC_DIR}/Python/importlib.h
   DEPENDS
@@ -424,6 +504,19 @@ add_custom_command(
     ${SRC_DIR}/Lib/importlib/_bootstrap_external.py
     ${SRC_DIR}/Lib/importlib/_bootstrap.py
 )
+if(PY_VERSION VERSION_GREATER_EQUAL "3.8")
+  add_custom_command(
+    OUTPUT ${LIBPYTHON_FROZEN_SOURCES}
+    COMMAND
+      ${CMAKE_CROSSCOMPILING_EMULATOR} $<TARGET_FILE:_freeze_importlib>
+        zipimport
+        ${SRC_DIR}/Lib/zipimport.py
+        ${SRC_DIR}/Python/importlib_zipimport.h
+    DEPENDS
+      ${SRC_DIR}/Lib/zipimport.py
+    APPEND
+  )
+endif()
 
 # This is a convenience target allowing to regenerate
 # the frozen sources.
@@ -431,6 +524,7 @@ add_custom_target(freeze_modules DEPENDS ${LIBPYTHON_FROZEN_SOURCES})
 
 endif()
 
+if(PY_VERSION VERSION_LESS "3.8")
 # Build pgen executable
 set(PGEN2_SOURCES
     ${SRC_DIR}/Parser/parsetok.c
@@ -451,6 +545,7 @@ add_executable(pgen
 )
 if(builtin_compile_definitions_without_py_limited_api)
   target_compile_definitions(pgen PUBLIC ${builtin_compile_definitions_without_py_limited_api})
+endif()
 endif()
 
 # Collect libpython sources
@@ -482,11 +577,9 @@ function(add_libpython name type install component)
         RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/${LIBPYTHON_LIBDIR}
         INSTALL_NAME_DIR ${CMAKE_INSTALL_PREFIX}/${LIBPYTHON_LIBDIR}
     )
-    if(HAVE_POSITION_INDEPENDENT_CODE)
-        set_target_properties(${name} PROPERTIES
-            POSITION_INDEPENDENT_CODE ON
-        )
-    endif()
+    set_target_properties(${name} PROPERTIES
+        POSITION_INDEPENDENT_CODE ON
+    )
 
     # Export target
     set_property(GLOBAL APPEND PROPERTY PYTHON_TARGETS ${name})
@@ -561,13 +654,6 @@ if(BUILD_LIBPYTHON_SHARED)
         add_dependencies(${targetname} generate_libpython3stub_lib)
 
         target_link_libraries(${targetname} ${python3stub_lib})
-
-        file(GLOB_RECURSE IMPORTED_ZLIB_DLL ${CMAKE_BINARY_DIR}/third-party/zlib1.dll)
-        add_custom_command(TARGET libpython-shared
-                            PRE_BUILD
-                            COMMAND ${CMAKE_COMMAND} -E copy ${IMPORTED_ZLIB_DLL} $<TARGET_FILE_DIR:_freeze_importlib>
-                            COMMENT "Copy ${IMPORTED_WIN_DLL} to libpython-shared destination"
-                            )
     endif()
 
     if(IS_PY3 AND UNIX AND NOT APPLE)
@@ -597,13 +683,10 @@ endif()
 
 if(NOT BUILD_LIBPYTHON_SHARED)
     add_libpython(libpython-static STATIC ${INSTALL_DEVELOPMENT} Development)
-    if(HAVE_TARGET_COMPILE_DEFINITIONS)
-        target_compile_definitions(libpython-static PUBLIC Py_NO_ENABLE_SHARED)
-    else()
-        set_target_properties(libpython-static PROPERTIES
-            COMPILE_DEFINITIONS Py_NO_ENABLE_SHARED
-        )
-    endif()
+    target_compile_definitions(libpython-static
+        PUBLIC
+            Py_NO_ENABLE_SHARED
+    )
     set_target_properties(libpython-static PROPERTIES
         ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/${LIBPYTHON_STATIC_ARCHIVEDIR}
     )

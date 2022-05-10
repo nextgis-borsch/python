@@ -7,9 +7,9 @@ cmake/include,cmake/include,,txt
 cmake/lib,cmake/lib,,txt
 cmake/libpython,cmake/libpython,,"txt,cmake"
 cmake/patches,cmake/patches,,patch
-cmake/patches-win32,cmake/patches-win32,,patch
 cmake/PC/bdist_wininst,cmake/PC/bdist_wininst,,txt
 cmake/python,cmake/python,,txt
+cmake/tools,cmake/tools,,txt
 patches,patches,,rst
 patches/2.7.13/Windows-MSVC/1900,patches/2.7.13/Windows-MSVC/1900,,patch
 patches/3.5,patches/3.5,,patch
