@@ -11,19 +11,6 @@ include(CheckVariableExists)
 include(cmake/PlatformTest.cmake)
 include(TestBigEndian)
 
-# XXX Remove if minimum required CMake >= 2.8.11
-#     See CMake commit add8d22a (properly detect processor architecture on Windows)
-if(CMAKE_HOST_WIN32 AND CMAKE_VERSION VERSION_LESS "2.8.11")
-    if(ENV{PROCESSOR_ARCHITEW6432})
-        set(CMAKE_HOST_SYSTEM_PROCESSOR "$ENV{PROCESSOR_ARCHITEW6432}")
-    else()
-        set(CMAKE_HOST_SYSTEM_PROCESSOR "$ENV{PROCESSOR_ARCHITECTURE}")
-    endif()
-    if(NOT CMAKE_CROSSCOMPILING)
-        set(CMAKE_SYSTEM_PROCESSOR "${CMAKE_HOST_SYSTEM_PROCESSOR}")
-    endif()
-endif()
-
 message(STATUS "The system name is ${CMAKE_SYSTEM_NAME}")
 message(STATUS "The system processor is ${CMAKE_SYSTEM_PROCESSOR}")
 message(STATUS "The system version is ${CMAKE_SYSTEM_VERSION}")
@@ -34,7 +21,7 @@ include(FindAnyProject)
 if(USE_SYSTEM_BZip2)
     find_anyproject(BZip2 REQUIRED NAMES BZ2 bz2 libzip2)
     set(BZIP2_INCLUDE_DIR ${BZIP2_INCLUDE_DIRS})
-    set(BZIP2_LIBRARY ${BZIP2_LIBRARIES})
+    set(BZIP2_LIBRARIES ${BZIP2_LIBRARIES})
     add_definitions(-DBZ_IMPORT)
 endif()
 
@@ -164,7 +151,7 @@ set(ABIFLAGS )
 if(Py_DEBUG)
   set(ABIFLAGS "${ABIFLAGS}d")
 endif()
-if(WITH_PYMALLOC)
+if(WITH_PYMALLOC AND PY_VERSION VERSION_LESS "3.8")
   set(ABIFLAGS "${ABIFLAGS}m")
 endif()
 message(STATUS "${_msg} - ${ABIFLAGS}")
@@ -179,6 +166,17 @@ endif()
 set(SOABI "cpython-${PY_VERSION_MAJOR}${PY_VERSION_MINOR}${ABIFLAGS}-${PLATFORM_TRIPLET}")
 
 message(STATUS "${_msg} - ${SOABI}")
+
+endif()
+
+if(PY_VERSION VERSION_GREATER_EQUAL "3.8")
+
+# Alternative SOABI used in debug build to load C extensions built in release mode
+# Release and debug (Py_DEBUG) ABI are compatible, but not Py_TRACE_REFS ABI
+if(Py_DEBUG AND NOT WITH_TRACE_REFS)
+  string(REPLACE "d" "" ALT_ABIFLAGS "${ABIFLAGS}")
+  set(ALT_SOABI "cpython-${PY_VERSION_MAJOR}${PY_VERSION_MINOR}${ALT_ABIFLAGS}-${PLATFORM_TRIPLET}")
+endif()
 
 endif()
 
@@ -214,6 +212,7 @@ check_include_files(arpa/inet.h HAVE_ARPA_INET_H)
 check_include_files(bluetooth/bluetooth.h HAVE_BLUETOOTH_BLUETOOTH_H)
 check_include_files(bluetooth.h HAVE_BLUETOOTH_H)
 check_include_files(conio.h HAVE_CONIO_H)
+check_include_files(crypt.h HAVE_CRYPT_H)
 check_include_files(curses.h HAVE_CURSES_H)
 check_include_files(direct.h HAVE_DIRECT_H)
 check_include_files(dlfcn.h HAVE_DLFCN_H) # libffi and cpython
@@ -239,14 +238,24 @@ set(LINUX_NETLINK_HEADERS ${LINUX_NETLINK_HEADERS} linux/netlink.h)
 check_include_files("${LINUX_NETLINK_HEADERS}" HAVE_LINUX_NETLINK_H)
 
 if(IS_PY3)
+set(LINUX_QRTR_HEADERS)
+add_cond(LINUX_QRTR_HEADERS HAVE_ASM_TYPES_H  asm/types.h)
+add_cond(LINUX_QRTR_HEADERS HAVE_SYS_SOCKET_H sys/socket.h)
+set(LINUX_QRTR_HEADERS ${LINUX_QRTR_HEADERS} linux/qrtr.h)
+check_include_files("${LINUX_QRTR_HEADERS}" HAVE_LINUX_QRTR_H)
 # On Linux, can.h and can/raw.h require sys/socket.h
 set(LINUX_CAN_HEADERS)
 add_cond(LINUX_CAN_HEADERS HAVE_SYS_SOCKET_H sys/socket.h)
 check_include_files("${LINUX_CAN_HEADERS};linux/can.h" HAVE_LINUX_CAN_H)
 check_include_files("${LINUX_CAN_HEADERS};linux/can/bcm.h" HAVE_LINUX_CAN_BCM_H)
+check_include_files("${LINUX_CAN_HEADERS};linux/can/j1939.h" HAVE_LINUX_CAN_J1939_H)
 check_include_files("${LINUX_CAN_HEADERS};linux/can/raw.h" HAVE_LINUX_CAN_RAW_H)
+set(LINUX_VM_SOCKETS_HEADERS)
+add_cond(LINUX_VM_SOCKETS_HEADERS HAVE_SYS_SOCKET_H sys/socket.h)
+check_include_files("${LINUX_VM_SOCKETS_HEADERS};linux/vm_sockets.h" HAVE_LINUX_VM_SOCKETS_H)
 endif()
 
+check_include_files(mach-o/dyld.h HAVE_MACH_O_DYLD_H)
 check_include_files(memory.h HAVE_MEMORY_H) # libffi and cpython
 check_include_files(minix/config.h HAVE_MINIX_CONFIG_H)
 check_include_files(ncurses.h HAVE_NCURSES_H)
@@ -277,12 +286,14 @@ check_include_files(sys/epoll.h HAVE_SYS_EPOLL_H)
 check_include_files(sys/event.h HAVE_SYS_EVENT_H)
 check_include_files(sys/file.h HAVE_SYS_FILE_H)
 check_include_files(sys/loadavg.h HAVE_SYS_LOADAVG_H)
+check_include_files(sys/sysmacros.h HAVE_SYS_SYSMACROS_H)
 check_include_files(sys/lock.h HAVE_SYS_LOCK_H)
 check_include_files(sys/mkdev.h HAVE_SYS_MKDEV_H)
 check_include_files(sys/mman.h HAVE_SYS_MMAN_H) # libffi and cpython
 check_include_files(sys/modem.h HAVE_SYS_MODEM_H)
 check_include_files(sys/param.h HAVE_SYS_PARAM_H)
 check_include_files(sys/poll.h HAVE_SYS_POLL_H)
+check_include_files(sys/random.h HAVE_SYS_RANDOM_H)
 check_include_files(sys/resource.h HAVE_SYS_RESOURCE_H)
 check_include_files(sys/select.h HAVE_SYS_SELECT_H)
 check_include_files(sys/statvfs.h HAVE_SYS_STATVFS_H)
@@ -311,9 +322,12 @@ check_include_files(stdarg.h HAVE_STDARG_PROTOTYPES)
 if(IS_PY3)
 check_include_files(endian.h HAVE_ENDIAN_H)
 check_include_files(sched.h HAVE_SCHED_H)
+check_include_files(linux/memfd.h HAVE_LINUX_MEMFD_H)
+check_include_files(linux/random.h HAVE_LINUX_RANDOM_H)
 check_include_files(sys/devpoll.h HAVE_SYS_DEVPOLL_H)
 check_include_files(sys/endian.h HAVE_SYS_ENDIAN_H)
 check_include_files(sys/ioctl.h HAVE_SYS_IOCTL_H)
+check_include_files(sys/memfd.h HAVE_SYS_MEMFD_H)
 check_include_files("sys/types.h;sys/kern_control.h" HAVE_SYS_KERN_CONTROL_H)
 check_include_files(sys/sendfile.h HAVE_SYS_SENDFILE_H)
 check_include_files(sys/syscall.h HAVE_SYS_SYSCALL_H)
@@ -397,7 +411,7 @@ if(APPLE)
   find_library(HAVE_LIBSYSTEMCONFIGURATION SystemConfiguration)
 endif()
 
-if(WITH_THREAD)
+if(WITH_THREAD OR PY_VERSION VERSION_GREATER_EQUAL "3.7")
   set(CMAKE_HAVE_PTHREAD_H ${HAVE_PTHREAD_H}) # Skip checking for header a second time.
   find_package(Threads)
   if(CMAKE_HAVE_LIBC_CREATE)
@@ -427,6 +441,8 @@ python_platform_test(
 cmake_pop_check_state()
 endif()
 
+set_required_def(_POSIX_THREADS 1)    # Define on Linux as it is required for threading
+set_required_def(_POSIX_SOURCE 1)     # Define on Linux in order for 'stat' and other things to work.
 set_required_def(_GNU_SOURCE 1)       # Define on Linux to activate all library features
 set_required_def(_NETBSD_SOURCE 1)    # Define on NetBSD to activate all library features
 set_required_def(__BSD_VISIBLE 1)     # Define on FreeBSD to activate all library features
@@ -441,7 +457,6 @@ set_required_def(__EXTENSIONS__ 1)    # Defined on Solaris to see additional fun
 
 
 if(HAVE_MINIX_CONFIG_H)
-  set_required_def(_POSIX_SOURCE 1)   # Define to 1 if you need to in order for 'stat' and other things to work.
   set_required_def(_POSIX_1_SOURCE 2) # Define to 2 if the system does not provide POSIX.1 features except with this defined.
   set_required_def(_MINIX 1)          # Define to 1 if on MINIX.
 endif()
@@ -674,6 +689,8 @@ set(CFG_HEADERS )
 
 add_cond(CFG_HEADERS HAVE_SYS_EPOLL_H sys/epoll.h)
 add_cond(CFG_HEADERS HAVE_SYS_EVENT_H sys/event.h)
+add_cond(CFG_HEADERS HAVE_SYS_RANDOM_H sys/random.h)
+add_cond(CFG_HEADERS HAVE_SYS_SYSMACROS_H sys/sysmacros.h)
 add_cond(CFG_HEADERS HAVE_SYS_TYPES_H sys/types.h)
 add_cond(CFG_HEADERS HAVE_SYS_TIME_H sys/time.h)
 add_cond(CFG_HEADERS HAVE_SYS_FILE_H sys/file.h)
@@ -707,9 +724,13 @@ add_cond(CFG_HEADERS HAVE_WCHAR_H wchar.h)
 if(IS_PY3)
 add_cond(CFG_HEADERS HAVE_DIRENT_H dirent.h)
 add_cond(CFG_HEADERS HAVE_ENDIAN_H endian.h)
+add_cond(CFG_HEADERS HAVE_LINUX_MEMFD_H linux/memfd.h)
+add_cond(CFG_HEADERS HAVE_LINUX_WAIT_H linux/wait.h)
+add_cond(CFG_HEADERS HAVE_MACH_O_DYLD_H mach-o/dyld.h)
 add_cond(CFG_HEADERS HAVE_NET_IF_H net/if.h)
 add_cond(CFG_HEADERS HAVE_SCHED_H sched.h)
 add_cond(CFG_HEADERS HAVE_SYS_ENDIAN_H sys/endian.h)
+add_cond(CFG_HEADERS HAVE_SYS_MEMFD_H sys/memfd.h)
 add_cond(CFG_HEADERS HAVE_SYS_RESOURCE_H sys/resource.h)
 add_cond(CFG_HEADERS HAVE_SYS_SENDFILE_H sys/sendfile.h)
 add_cond(CFG_HEADERS HAVE_SYS_TIME_H sys/time.h)
@@ -778,7 +799,7 @@ check_symbol_exists(getpagesize  "${CFG_HEADERS}" HAVE_GETPAGESIZE)
 check_symbol_exists(getpgid      "${CFG_HEADERS}" HAVE_GETPGID)
 check_symbol_exists(getpgrp      "${CFG_HEADERS}" HAVE_GETPGRP)
 check_symbol_exists(getpid       "${CFG_HEADERS}" HAVE_GETPID)
-check_symbol_exists(getpriority  "${CFG_HEADERS}" HAVE_GETPRIORITY)
+python_check_function(getpriority HAVE_GETPRIORITY)
 check_symbol_exists(getpwent     "${CFG_HEADERS}" HAVE_GETPWENT)
 check_symbol_exists(getresgid    "${CFG_HEADERS}" HAVE_GETRESGID)
 check_symbol_exists(getresuid    "${CFG_HEADERS}" HAVE_GETRESUID)
@@ -860,10 +881,15 @@ check_symbol_exists(_getpty      "${CFG_HEADERS}" HAVE__GETPTY)
 
 if(IS_PY3)
 check_symbol_exists(accept4      "${CFG_HEADERS}" HAVE_ACCEPT4)
+check_symbol_exists(copy_file_range "${CFG_HEADERS}" HAVE_COPY_FILE_RANGE)
 check_symbol_exists(dup3         "${CFG_HEADERS}" HAVE_DUP3)
+check_symbol_exists(_dyld_shared_cache_contains_path "${CFG_HEADERS}" HAVE_DYLD_SHARED_CACHE_CONTAINS_PATH)
+check_symbol_exists(explicit_bzero  "${CFG_HEADERS}" HAVE_EXPLICIT_BZERO)
+check_symbol_exists(explicit_memset "${CFG_HEADERS}" HAVE_EXPLICIT_MEMSET)
 check_symbol_exists(faccessat    "${CFG_HEADERS}" HAVE_FACCESSAT)
 check_symbol_exists(fchmodat     "${CFG_HEADERS}" HAVE_FCHMODAT)
 check_symbol_exists(fchownat     "${CFG_HEADERS}" HAVE_FCHOWNAT)
+check_symbol_exists(fdwalk       "${CFG_HEADERS}" HAVE_FDWALK)
 check_symbol_exists(fexecve      "${CFG_HEADERS}" HAVE_FEXECVE)
 check_symbol_exists(fdopendir    "${CFG_HEADERS}" HAVE_FDOPENDIR)
 check_symbol_exists(fstatat      "${CFG_HEADERS}" HAVE_FSTATAT)
@@ -871,14 +897,20 @@ check_symbol_exists(futimens     "${CFG_HEADERS}" HAVE_FUTIMENS)
 check_symbol_exists(futimes      "${CFG_HEADERS}" HAVE_FUTIMES)
 check_symbol_exists(futimesat    "${CFG_HEADERS}" HAVE_FUTIMESAT)
 check_symbol_exists(getentropy   "${CFG_HEADERS}" HAVE_GETENTROPY)
-check_symbol_exists(getpriority  "${CFG_HEADERS}" HAVE_GETPRIORITY)
+python_check_function(getpriority HAVE_GETPRIORITY)
+check_symbol_exists(getgrgid_r   "${CFG_HEADERS}" HAVE_GETGRGID_R)
+check_symbol_exists(getgrnam_r   "${CFG_HEADERS}" HAVE_GETGRNAM_R)
 check_symbol_exists(getgrouplist "${CFG_HEADERS}" HAVE_GETGROUPLIST)
+check_symbol_exists(getpwnam_r   "${CFG_HEADERS}" HAVE_GETPWNAM_R)
+check_symbol_exists(getpwuid_r   "${CFG_HEADERS}" HAVE_GETPWUID_R)
 check_symbol_exists(htole64      "${CFG_HEADERS}" HAVE_HTOLE64)
 check_symbol_exists(if_nameindex "${CFG_HEADERS}" HAVE_IF_NAMEINDEX)
 check_symbol_exists(linkat       "${CFG_HEADERS}" HAVE_LINKAT)
 check_symbol_exists(lockf        "${CFG_HEADERS}" HAVE_LOCKF)
 check_symbol_exists(lutimes      "${CFG_HEADERS}" HAVE_LUTIMES)
+check_symbol_exists(madvise      "${CFG_HEADERS}" HAVE_MADVISE)
 check_symbol_exists(mbrtowc      "${CFG_HEADERS}" HAVE_MBRTOWC)
+check_symbol_exists(memfd_create "${CFG_HEADERS}" HAVE_MEMFD_CREATE)
 check_symbol_exists(memrchr      "${CFG_HEADERS}" HAVE_MEMRCHR)
 check_symbol_exists(mkdirat      "${CFG_HEADERS}" HAVE_MKDIRAT)
 check_symbol_exists(mkfifoat     "${CFG_HEADERS}" HAVE_MKFIFOAT)
@@ -887,7 +919,11 @@ check_symbol_exists(openat       "${CFG_HEADERS}" HAVE_OPENAT)
 check_symbol_exists(pipe2        "${CFG_HEADERS}" HAVE_PIPE2)
 check_symbol_exists(posix_fadvise          "${CFG_HEADERS}" HAVE_POSIX_FADVISE)
 check_symbol_exists(posix_fallocate        "${CFG_HEADERS}" HAVE_POSIX_FALLOCATE)
+check_symbol_exists(posix_spawn            "${CFG_HEADERS}" HAVE_POSIX_SPAWN)
+check_symbol_exists(posix_spawnp           "${CFG_HEADERS}" HAVE_POSIX_SPAWNP)
 check_symbol_exists(pread                  "${CFG_HEADERS}" HAVE_PREAD)
+check_symbol_exists(preadv                 "${CFG_HEADERS}" HAVE_PREADV)
+check_symbol_exists(preadv2                "${CFG_HEADERS}" HAVE_PREADV2)
 check_symbol_exists(prlimit                "${CFG_HEADERS}" HAVE_PRLIMIT)
 
 cmake_push_check_state()
@@ -896,9 +932,12 @@ check_symbol_exists(pthread_kill           "${CFG_HEADERS}" HAVE_PTHREAD_KILL)
 cmake_pop_check_state()
 
 check_symbol_exists(pwrite                 "${CFG_HEADERS}" HAVE_PWRITE)
+check_symbol_exists(pwritev                "${CFG_HEADERS}" HAVE_PWRITEV)
+check_symbol_exists(pwritev2               "${CFG_HEADERS}" HAVE_PWRITEV2)
 check_symbol_exists(readlinkat             "${CFG_HEADERS}" HAVE_READLINKAT)
 check_symbol_exists(readv                  "${CFG_HEADERS}" HAVE_READV)
 check_symbol_exists(renameat               "${CFG_HEADERS}" HAVE_RENAMEAT)
+check_symbol_exists(rtpSpawn               "${CFG_HEADERS}" HAVE_RTPSPAWN)
 check_symbol_exists(sched_rr_get_interval  "${CFG_HEADERS}" HAVE_SCHED_RR_GET_INTERVAL)
 check_symbol_exists(sched_setaffinity      "${CFG_HEADERS}" HAVE_SCHED_SETAFFINITY)
 check_symbol_exists(sched_setparam         "${CFG_HEADERS}" HAVE_SCHED_SETPARAM)
@@ -908,7 +947,9 @@ check_symbol_exists(sethostname            "${CFG_HEADERS}" HAVE_SETHOSTNAME)
 check_symbol_exists(setpriority            "${CFG_HEADERS}" HAVE_SETPRIORITY)
 check_symbol_exists(sched_get_priority_max "${CFG_HEADERS}" HAVE_SCHED_GET_PRIORITY_MAX)
 check_symbol_exists(sigaltstack            "${CFG_HEADERS}" HAVE_SIGALTSTACK)
+check_symbol_exists(sigfillset             "${CFG_HEADERS}" HAVE_SIGFILLSET)
 check_symbol_exists(sigpending             "${CFG_HEADERS}" HAVE_SIGPENDING)
+check_symbol_exists(strsignal              "${CFG_HEADERS}" HAVE_STRSIGNAL)
 check_symbol_exists(sigtimedwait           "${CFG_HEADERS}" HAVE_SIGTIMEDWAIT)
 check_symbol_exists(sigwait                "${CFG_HEADERS}" HAVE_SIGWAIT)
 check_symbol_exists(sigwaitinfo            "${CFG_HEADERS}" HAVE_SIGWAITINFO)
@@ -933,6 +974,35 @@ set(HAVE_ST_BLOCKS ${HAVE_STRUCT_STAT_ST_BLOCKS})
 check_struct_has_member("struct stat" st_flags   "${CFG_HEADERS}"    HAVE_STRUCT_STAT_ST_FLAGS)
 check_struct_has_member("struct stat" st_gen     "${CFG_HEADERS}"    HAVE_STRUCT_STAT_ST_GEN)
 check_struct_has_member("struct stat" st_rdev    "${CFG_HEADERS}"    HAVE_STRUCT_STAT_ST_RDEV)
+
+if(IS_PY3)
+check_struct_has_member("struct passwd" pw_gecos  "${CFG_HEADERS}" HAVE_STRUCT_PASSWD_PW_GECOS)
+check_struct_has_member("struct passwd" pw_passwd "${CFG_HEADERS}" HAVE_STRUCT_PASSWD_PW_PASSWD)
+
+check_struct_has_member("struct siginfo_t" si_band "${CFG_HEADERS}" HAVE_SIGINFO_T_SI_BAND)
+endif()
+
+#######################################################################
+#
+# Check for shm
+#
+#######################################################################
+if(PY_VERSION VERSION_GREATER_EQUAL "3.8")
+
+foreach(func IN ITEMS shm_open shm_unlink)
+  string(TOUPPER ${func} _func_upper)
+  check_symbol_exists(${func} "${CFG_HEADERS}" HAVE_${_func_upper})
+  if(NOT HAVE_${_func_upper})
+    cmake_push_check_state()
+    list(APPEND CMAKE_REQUIRED_LIBRARIES rt)
+    check_symbol_exists(${func} "${CFG_HEADERS}" HAVE_${_func_upper}_IN_RT)
+    cmake_pop_check_state()
+    set(SHM_NEEDS_LIBRT ${HAVE_${_func_upper}_IN_RT})
+    set(HAVE_${_func_upper} ${HAVE_${_func_upper}_IN_RT})
+  endif()
+endforeach()
+
+endif()
 
 #######################################################################
 #
@@ -1231,6 +1301,68 @@ python_platform_test_run(
   ${check_src}
   INVERT
   )
+  
+  
+#######################################################################
+#
+# Check for crypt functions
+#
+#######################################################################
+
+# We search for both crypt and crypt_r as one or the other may be defined
+# This gets us our -lcrypt in CMAKE_REQUIRED_LIBRARIES when required on
+# the target platform.
+
+cmake_push_check_state()
+set(check_src ${PROJECT_BINARY_DIR}/CMakeFiles/ac_cv_lib_crypt_crypt.c)
+file(WRITE ${check_src} "/* Override any GCC internal prototype to avoid an error.
+Use char because int might match the return type of a GCC
+builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern \"C\"
+#endif
+char crypt ();
+int main () { return crypt (); }
+")
+list(APPEND CMAKE_REQUIRED_LIBRARIES crypt)
+python_platform_test(
+  HAVE_CRYPT
+  "Checking for crypt in -lcrypt"
+  ${check_src}
+  DIRECT
+  )
+cmake_pop_check_state()
+
+cmake_push_check_state()
+set(check_src ${PROJECT_BINARY_DIR}/CMakeFiles/ac_cv_lib_crypt_crypt_r.c)
+file(WRITE ${check_src} "/* Override any GCC internal prototype to avoid an error.
+Use char because int might match the return type of a GCC
+builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern \"C\"
+#endif
+char crypt_r ();
+int main () { return crypt_r (); }
+")
+list(APPEND CMAKE_REQUIRED_LIBRARIES crypt)
+python_platform_test(
+  HAVE_CRYPT
+  "Checking for crypt_r in -lcrypt"
+  ${check_src}
+  DIRECT
+  )
+cmake_pop_check_state()
+
+add_cond(CMAKE_REQUIRED_LIBRARIES HAVE_CRYPT crypt)
+
+if(HAVE_CRYPT_H)
+  check_c_source_compiles("
+#define _GNU_SOURCE  /* Required for crypt_r()'s prototype in glibc. */
+#include <crypt.h>
+int main(void){
+  struct crypt_data d;
+  char *r = crypt_r(\"\", \"\", &d); }" HAVE_CRYPT_R)
+endif()
 
 #######################################################################
 #
@@ -1337,7 +1469,33 @@ endif()
 
 if(IS_PY3)
 
-check_function_exists(clock_getres HAVE_CLOCK_GETRES)
+if(APPLE)
+  cmake_push_check_state()
+  set(CMAKE_REQUIRED_FLAGS "-Wl,-no_weak_imports")
+  CHECK_C_SOURCE_COMPILES("int main(void) { return 0; }" SUPPORT_NO_WEAK_IMPORT_FLAG)
+  cmake_pop_check_state()
+else()
+  set(SUPPORT_NO_WEAK_IMPORT_FLAG 0)
+endif()
+
+cmake_push_check_state()
+set(check_src ${PROJECT_BINARY_DIR}/CMakeFiles/clock_getres.c)
+file(WRITE ${check_src} "
+#include <stdio.h>
+#include <time.h>
+int main() { return clock_getres(0, NULL); }
+")
+if(SUPPORT_NO_WEAK_IMPORT_FLAG)
+  set(CMAKE_REQUIRED_FLAGS "-Wl,-no_weak_imports")
+endif()
+python_platform_test(
+  HAVE_CLOCK_GETRES
+  "Checking for clock_getres"
+  ${check_src}
+  DIRECT
+  )
+cmake_pop_check_state()
+
 if(NOT HAVE_CLOCK_GETRES)
   cmake_push_check_state()
   set(check_src ${PROJECT_BINARY_DIR}/CMakeFiles/ac_cv_lib_rt_clock_getres.c)
@@ -1360,7 +1518,23 @@ if(NOT HAVE_CLOCK_GETRES)
   cmake_pop_check_state()
 endif()
 
-check_function_exists(clock_gettime HAVE_CLOCK_GETTIME)
+cmake_push_check_state()
+set(check_src ${PROJECT_BINARY_DIR}/CMakeFiles/clock_gettime.c)
+file(WRITE ${check_src} "
+#include <stdio.h>
+#include <time.h>
+int main() { return clock_gettime(0, NULL); }
+")
+if(SUPPORT_NO_WEAK_IMPORT_FLAG)
+  set(CMAKE_REQUIRED_FLAGS "-Wl,-no_weak_imports")
+endif()
+python_platform_test(
+  HAVE_CLOCK_GETTIME
+  "Checking for clock_gettime"
+  ${check_src}
+  DIRECT
+  )
+cmake_pop_check_state()
 if(NOT HAVE_CLOCK_GETTIME)
   cmake_push_check_state()
   set(check_src ${PROJECT_BINARY_DIR}/CMakeFiles/ac_cv_lib_rt_clock_gettime.c)
@@ -1382,6 +1556,48 @@ if(NOT HAVE_CLOCK_GETTIME)
     )
   cmake_pop_check_state()
   if(HAVE_CLOCK_GETTIME)
+    set(TIMEMODULE_LIB rt)
+  endif()
+endif()
+
+cmake_push_check_state()
+set(check_src ${PROJECT_BINARY_DIR}/CMakeFiles/clock_settime.c)
+file(WRITE ${check_src} "
+#include <stdio.h>
+#include <time.h>
+int main() { return clock_settime(0, NULL); }
+")
+if(SUPPORT_NO_WEAK_IMPORT_FLAG)
+  set(CMAKE_REQUIRED_FLAGS "-Wl,-no_weak_imports")
+endif()
+python_platform_test(
+  HAVE_CLOCK_SETTIME
+  "Checking for clock_settime"
+  ${check_src}
+  DIRECT
+  )
+cmake_pop_check_state()
+if(NOT HAVE_CLOCK_SETTIME)
+  cmake_push_check_state()
+  set(check_src ${PROJECT_BINARY_DIR}/CMakeFiles/ac_cv_lib_rt_clock_settime.c)
+  file(WRITE ${check_src} "/* Override any GCC internal prototype to avoid an error.
+    Use char because int might match the return type of a GCC
+    builtin and then its argument prototype would still apply.  */
+    #ifdef __cplusplus
+    extern \"C\"
+    #endif
+    char clock_gettime ();
+    int main () { return clock_settime (); }
+  ")
+  list(APPEND CMAKE_REQUIRED_LIBRARIES rt)
+  python_platform_test(
+    HAVE_CLOCK_SETTIME
+    "Checking for clock_settime in -lrt"
+    ${check_src}
+    DIRECT
+    )
+  cmake_pop_check_state()
+  if(HAVE_CLOCK_SETTIME)
     set(TIMEMODULE_LIB rt)
   endif()
 endif()
@@ -1456,6 +1672,59 @@ Two paths forward:
   endif()
 
 endif()
+
+endif()
+
+if(PY_VERSION VERSION_GREATER_EQUAL "3.7")
+set(PY_COERCE_C_LOCALE ${WITH_C_LOCALE_COERCION})
+endif()
+
+#######################################################################
+#
+# uuid tests
+#
+#######################################################################
+
+if(PY_VERSION VERSION_GREATER_EQUAL "3.7")
+
+cmake_push_check_state()
+set(CFG_HEADERS_SAVE ${CFG_HEADERS})
+
+check_include_files(uuid/uuid.h HAVE_UUID_UUID_H)
+check_include_files(uuid.h HAVE_UUID_H)
+
+add_cond(CFG_HEADERS HAVE_UUID_UUID_H uuid/uuid.h)
+add_cond(CFG_HEADERS HAVE_UUID_H uuid.h)
+
+add_cond(CMAKE_REQUIRED_LIBRARIES UUID_LIBRARY ${UUID_LIBRARY})
+
+check_symbol_exists(uuid_create "${CFG_HEADERS}" HAVE_UUID_CREATE)
+
+if(HAVE_UUID_H)
+  # Little-endian FreeBSD, OpenBSD and NetBSD needs encoding into an octet
+  # stream in big-endian byte-order
+  check_c_source_compiles("#include <uuid.h>
+int main(void){
+  #ifndef uuid_enc_be
+  uuid_t uuid;
+  unsigned char buf[sizeof(uuid)];
+  uuid_enc_be(buf, &uuid);
+  #endif
+}" HAVE_UUID_ENC_BE)
+endif()
+
+if(HAVE_UUID_UUID_H)
+  check_c_source_compiles("#include <uuid/uuid.h>
+int main(void){
+  #ifndef uuid_generate_time_safe
+  uuid_t out;
+  uuid_generate_time_safe(out);
+  #endif
+}" HAVE_UUID_GENERATE_TIME_SAFE)
+endif()
+
+set(CFG_HEADERS ${CFG_HEADERS_SAVE})
+cmake_pop_check_state()
 
 endif()
 
@@ -1560,6 +1829,10 @@ check_struct_has_member("struct sockaddr" sa_len "${CFG_HEADERS}" HAVE_SOCKADDR_
 check_type_size("struct sockaddr_storage" HAVE_SOCKADDR_STORAGE)
 unset(CMAKE_EXTRA_INCLUDE_FILES)
 
+set(CMAKE_EXTRA_INCLUDE_FILES "sys/types.h" "sys/socket.h" "linux/if_alg.h")
+check_type_size("struct sockaddr_alg" HAVE_SOCKADDR_ALG)
+unset(CMAKE_EXTRA_INCLUDE_FILES)
+
 set(CFG_HEADERS ${CFG_HEADERS_SAVE})
 cmake_pop_check_state()
 
@@ -1591,8 +1864,11 @@ else()
 endif()
 check_symbol_exists(pthread_sigmask "${CFG_HEADERS}" HAVE_PTHREAD_SIGMASK)
 check_symbol_exists(pthread_atfork "${CFG_HEADERS}" HAVE_PTHREAD_ATFORK)
+check_symbol_exists(pthread_condattr_setclock "${CFG_HEADERS}" HAVE_PTHREAD_CONDATTR_SETCLOCK)
+check_symbol_exists(pthread_getcpuclockid "${CFG_HEADERS}" HAVE_PTHREAD_GETCPUCLOCKID)
 
 add_cond(CFG_HEADERS  HAVE_SEMAPHORE_H  semaphore.h)
+check_symbol_exists(sem_clockwait "${CFG_HEADERS}" HAVE_SEM_CLOCKWAIT)
 check_symbol_exists(sem_getvalue "${CFG_HEADERS}" HAVE_SEM_GETVALUE)
 check_symbol_exists(sem_open "${CFG_HEADERS}" HAVE_SEM_OPEN)
 check_symbol_exists(sem_timedwait "${CFG_HEADERS}" HAVE_SEM_TIMEDWAIT)
@@ -1657,11 +1933,33 @@ python_platform_test_run(
 set(CFG_HEADERS ${CFG_HEADERS_SAVE})
 cmake_pop_check_state()
 
-if(CMAKE_SYSTEM MATCHES BlueGene)
+if(CMAKE_SYSTEM MATCHES BlueGene AND PY_VERSION VERSION_LESS "3.7")
   # Todo: Display message
   set(WITH_THREAD OFF CACHE STRING "System doesn't support multithreading" FORCE)
 endif()
 
+#######################################################################
+#
+# ssl tests
+#
+#######################################################################
+
+if(OPENSSL_INCLUDE_DIR AND OPENSSL_LIBRARIES)
+  cmake_push_check_state()
+
+  set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
+  set(CMAKE_REQUIRED_LIBRARIES ${OPENSSL_LIBRARIES})
+
+  # Checking for X509_VERIFY_PARAM_set1_host in libssl
+  check_c_source_compiles("#include <openssl/x509_vfy.h>
+int main(void){
+  X509_VERIFY_PARAM *p = X509_VERIFY_PARAM_new();
+  X509_VERIFY_PARAM_set1_host(p, \"localhost\", 0);
+  X509_VERIFY_PARAM_set1_ip_asc(p, \"127.0.0.1\");
+  X509_VERIFY_PARAM_set_hostflags(p, 0); }" HAVE_X509_VERIFY_PARAM_SET1_HOST)
+
+  cmake_pop_check_state()
+endif()
 
 #######################################################################
 #
@@ -1694,6 +1992,7 @@ if(HAVE_READLINE_READLINE_H)
   check_symbol_exists(rl_completion_suppress_append      "${CFG_HEADERS}" HAVE_RL_COMPLETION_SUPPRESS_APPEND)
   check_symbol_exists(rl_completion_matches       "${CFG_HEADERS}" HAVE_RL_COMPLETION_MATCHES)
   check_symbol_exists(rl_pre_input_hook           "${CFG_HEADERS}" HAVE_RL_PRE_INPUT_HOOK)
+  check_symbol_exists(rl_resize_terminal          "${CFG_HEADERS}" HAVE_RL_RESIZE_TERMINAL)
 
   set(CFG_HEADERS ${CFG_HEADERS_SAVE})
   cmake_pop_check_state()
@@ -1715,8 +2014,18 @@ if(HAVE_CURSES_H)
   check_symbol_exists(resizeterm      "${CFG_HEADERS}" HAVE_CURSES_RESIZETERM)
   check_symbol_exists(resize_term     "${CFG_HEADERS}" HAVE_CURSES_RESIZE_TERM)
   check_struct_has_member(WINDOW _flags   "${CFG_HEADERS}" WINDOW_HAS_FLAGS)
-
+  
   check_c_source_compiles("#include <curses.h>\n int main() {int i; i = mvwdelch(0,0,0);}" MVWDELCH_IS_EXPRESSION)
+  
+  check_symbol_exists(filter "${CFG_HEADERS}" HAVE_CURSES_FILTER)
+  check_symbol_exists(has_key "${CFG_HEADERS}" HAVE_CURSES_HAS_KEY)
+  check_symbol_exists(immedok "${CFG_HEADERS}" HAVE_CURSES_IMMEDOK)
+  check_symbol_exists(is_pad "${CFG_HEADERS}" HAVE_CURSES_IS_PAD)
+  check_symbol_exists(syncok "${CFG_HEADERS}" HAVE_CURSES_SYNCOK)
+  check_symbol_exists(typeahead "${CFG_HEADERS}" HAVE_CURSES_TYPEAHEAD)
+  check_symbol_exists(use_env "${CFG_HEADERS}" HAVE_CURSES_USE_ENV)
+  check_symbol_exists(wchgat "${CFG_HEADERS}" HAVE_CURSES_WCHGAT)
+
 
   set(CFG_HEADERS ${CFG_HEADERS_SAVE})
   cmake_pop_check_state()
@@ -1735,6 +2044,14 @@ if(HAVE_DLFCN_H)
   set(CFG_HEADERS ${CFG_HEADERS} dlfcn.h)
   add_cond(CMAKE_REQUIRED_LIBRARIES HAVE_LIBDL "${HAVE_LIBDL}")
   check_symbol_exists(dlopen          "${CFG_HEADERS}" HAVE_DLOPEN)
+  check_symbol_exists(RTLD_DEEPBIND dlfcn.h HAVE_DECL_RTLD_DEEPBIND)
+  check_symbol_exists(RTLD_GLOBAL   dlfcn.h HAVE_DECL_RTLD_GLOBAL)
+  check_symbol_exists(RTLD_LAZY     dlfcn.h HAVE_DECL_RTLD_LAZY)
+  check_symbol_exists(RTLD_LOCAL    dlfcn.h HAVE_DECL_RTLD_LOCAL)
+  check_symbol_exists(RTLD_MEMBER   dlfcn.h HAVE_DECL_RTLD_MEMBER)
+  check_symbol_exists(RTLD_NODELETE dlfcn.h HAVE_DECL_RTLD_NODELETE)
+  check_symbol_exists(RTLD_NOLOAD   dlfcn.h HAVE_DECL_RTLD_NOLOAD)
+  check_symbol_exists(RTLD_NOW      dlfcn.h HAVE_DECL_RTLD_NOW)
 
   set(CFG_HEADERS ${CFG_HEADERS_SAVE})
   cmake_pop_check_state()
@@ -2159,6 +2476,24 @@ python_platform_test_run(
   ${check_src}
   INVERT
   )
+  
+  # Issue #25658: POSIX hasn't defined that pthread_key_t is compatible with int.
+# This checking will be unnecessary after removing deprecated TLS API.
+# The cast to long int works around a bug in the HP C Compiler
+# version HP92453-01 B.11.11.23709.GP, which incorrectly rejects
+# declarations like `int a3[[(sizeof (unsigned char)) >= 0]];'.
+# This bug is HP SR number 8606223364.
+if(HAVE_PTHREAD_H)
+  set(CMAKE_EXTRA_INCLUDE_FILES "pthread.h")
+  check_type_size(pthread_key_t SIZEOF_PTHREAD_KEY_T)
+  unset(CMAKE_EXTRA_INCLUDE_FILES)
+
+  if("${SIZEOF_PTHREAD_KEY_T}" STREQUAL "${SIZEOF_INT}")
+    check_c_source_compiles("#include <pthread.h>\n int main(void){pthread_key_t k; k * 1;}" PTHREAD_KEY_T_IS_COMPATIBLE_WITH_INT)
+  endif()
+endif()
+
+endif(IS_PY3)
 
 # Check whether the compiler supports computed gotos
 set(check_src ${PROJECT_BINARY_DIR}/CMakeFiles/ac_cv_computed_gotos.c)
@@ -2179,6 +2514,8 @@ python_platform_test_run(
   ${check_src}
   DIRECT
   )
+  
+if(IS_PY3)
 
 # Availability of -O2
 cmake_push_check_state()
@@ -2276,7 +2613,7 @@ python_platform_test(
   DIRECT
   )
 
-endif()
+endif(IS_PY3)
 
 if(HAVE_LONG_LONG)
   # Checking for %lld and %llu printf() format support
@@ -2377,17 +2714,94 @@ endif()
 
 ##########################################################
 
-if(ZLIB_LIBRARY)
+if(ZLIB_LIBRARIES)
   cmake_push_check_state()
   set(CFG_HEADERS_SAVE ${CFG_HEADERS})
 
   set(CFG_HEADERS ${CFG_HEADERS} zlib.h)
-  add_cond(CMAKE_REQUIRED_INCLUDES ZLIB_INCLUDE_DIR ${ZLIB_INCLUDE_DIR})
-  add_cond(CMAKE_REQUIRED_LIBRARIES ZLIB_LIBRARY ${ZLIB_LIBRARY})
+  add_cond(CMAKE_REQUIRED_INCLUDES ZLIB_INCLUDE_DIRS ${ZLIB_INCLUDE_DIRS})
+  add_cond(CMAKE_REQUIRED_LIBRARIES ZLIB_LIBRARIES ${ZLIB_LIBRARIES})
   check_symbol_exists(inflateCopy      "${CFG_HEADERS}" HAVE_ZLIB_COPY)
 
   set(CFG_HEADERS ${CFG_HEADERS_SAVE})
   cmake_pop_check_state()
+endif()
+
+# Check if tirpc static library and its dependencies can be linked statically
+# and set TIRPC_LIBRARY_STATIC_DEPENDENCY_REQUIRED and TIRPC_STATIC_LIBRARIES.
+#
+# If the tirpc static library is built with the gssapi feature, and no gssapi_krb5
+# static library can be found, the python extensions depending on tirpc should be
+# disabled
+#
+# Indeed, minimal support for static linking in krb5 was only re-introduced starting
+# with krb5-1.19.2 (see [1]) which may not yet be available (see [2]).
+#
+# [1] https://github.com/krb5/krb5/commit/af44e8dee9b5bfffb05eb5a9b89c79c02ab7c2ff
+# [2] https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=439039
+
+set(_tirpc_library_static_dependencies_required 0)
+set(_tirpc_static_libraries)
+
+if(WITH_STATIC_DEPENDENCIES AND TIRPC_LIBRARY)
+
+  # Attempt to find gssapi_krb5 static library
+  set(__CURRENT_CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
+  set(CMAKE_FIND_LIBRARY_SUFFIXES "${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  find_library(GSSAPI_KRB5_STATIC_LIBRARY gssapi_krb5)
+  set(CMAKE_FIND_LIBRARY_SUFFIXES ${__CURRENT_CMAKE_FIND_LIBRARY_SUFFIXES})
+
+  # Attempt to find gssapi_krb5 shared library
+  set(__CURRENT_CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
+  if(NOT ${CMAKE_IMPORT_LIBRARY_SUFFIX} STREQUAL "")
+    set(CMAKE_FIND_LIBRARY_SUFFIXES "${CMAKE_IMPORT_LIBRARY_SUFFIX}")
+  else()
+    set(CMAKE_FIND_LIBRARY_SUFFIXES "${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  endif()
+  find_library(GSSAPI_KRB5_SHARED_LIBRARY gssapi_krb5)
+  set(CMAKE_FIND_LIBRARY_SUFFIXES ${__CURRENT_CMAKE_FIND_LIBRARY_SUFFIXES})
+
+  if(GSSAPI_KRB5_SHARED_LIBRARY)
+    # Attempt to test if tirpc library is built with the krb5 gssapi feature
+    # by looking for the symbol "authgss_create" linking against the corresponding
+    # shared library.
+
+    # Save variables
+    set(__CURRENT_CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS})
+    cmake_push_check_state()
+
+    list(APPEND CMAKE_REQUIRED_LIBRARIES ${TIRPC_LIBRARY})
+    add_cond(CMAKE_REQUIRED_LIBRARIES  CMAKE_USE_PTHREADS_INIT  "${CMAKE_THREAD_LIBS_INIT}")
+    add_cond(CMAKE_REQUIRED_LIBRARIES  GSSAPI_KRB5_SHARED_LIBRARY  "${GSSAPI_KRB5_SHARED_LIBRARY}")
+
+    # If any, remove "-static" flags
+    string(REPLACE "-static" "" _cmake_exe_linker_flags "${CMAKE_EXE_LINKER_FLAGS}")
+    set(CMAKE_EXE_LINKER_FLAGS ${_cmake_exe_linker_flags} CACHE STRING "" FORCE)
+
+    check_symbol_exists("authgss_create" "tirpc/rpc/auth_gss.h" TIRPC_WITH_AUTHGSS_CREATE)
+
+    # Restore variables
+    cmake_pop_check_state()
+    set(CMAKE_EXE_LINKER_FLAGS ${__CURRENT_CMAKE_EXE_LINKER_FLAGS} CACHE STRING "Flags used by the linker during all build types." FORCE)
+
+    if(TIRPC_WITH_AUTHGSS_CREATE)
+      set(_tirpc_library_static_dependencies_required 1)
+      set(_tirpc_static_libraries ${GSSAPI_KRB5_STATIC_LIBRARY})
+    endif()
+  else()
+    # If shared library can't be found, we assume the static library is required.
+    set(_tirpc_library_static_dependencies_required 1)
+    set(_tirpc_static_libraries ${GSSAPI_KRB5_STATIC_LIBRARY})
+  endif()
+
+endif()
+if(NOT DEFINED TIRPC_LIBRARY_STATIC_DEPENDENCY_REQUIRED)
+  set(TIRPC_LIBRARY_STATIC_DEPENDENCY_REQUIRED ${_tirpc_library_static_dependencies_required} CACHE BOOL "")
+  message(STATUS "Setting TIRPC_LIBRARY_STATIC_DEPENDENCY_REQUIRED to ${TIRPC_LIBRARY_STATIC_DEPENDENCY_REQUIRED}")
+endif()
+if(TIRPC_LIBRARY_STATIC_DEPENDENCY_REQUIRED AND NOT DEFINED TIRPC_STATIC_LIBRARIES)
+  set(TIRPC_STATIC_LIBRARIES ${_tirpc_static_libraries} CACHE BOOL "")
+  message(STATUS "Setting TIRPC_STATIC_LIBRARIES to ${TIRPC_STATIC_LIBRARIES}")
 endif()
 
 ############################################
@@ -2395,6 +2809,8 @@ endif()
 if(IS_PY3)
 # Check for CAN_RAW_FD_FRAMES
 check_c_source_compiles("#include <linux/can/raw.h>\n int main () { int can_raw_fd_frames = CAN_RAW_FD_FRAMES; }" HAVE_LINUX_CAN_RAW_FD_FRAMES)
+# Check for CAN_RAW_JOIN_FILTERS
+check_c_source_compiles("#include <linux/can/raw.h>\n int main () { int can_raw_join_filters = CAN_RAW_JOIN_FILTERS; }" HAVE_LINUX_CAN_RAW_JOIN_FILTERS)
 endif()
 
 set(HAVE_OSX105_SDK 0)

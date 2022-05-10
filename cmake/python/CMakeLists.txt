@@ -13,6 +13,15 @@ set_property(
 target_compile_definitions(python PRIVATE Py_BUILD_CORE)
 add_definitions(-DPy_BUILD_CORE)
 
+# Copy zlib1.dll
+if(WIN32 AND ZLIB_FOUND)
+    get_target_property(ZLIB_DLL ${ZLIB_LIBRARIES} IMPORTED_LOCATION_RELEASE)
+    add_custom_command(TARGET python
+       POST_BUILD
+       COMMAND ${CMAKE_COMMAND} -E copy_if_different ${ZLIB_DLL} $<TARGET_FILE_DIR:python>
+    )
+endif()
+
 # Link against the shared libpython if it was built, otherwise use the static
 # version.
 if(BUILD_LIBPYTHON_SHARED)
