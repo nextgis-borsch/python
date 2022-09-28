@@ -52,6 +52,12 @@ if(USE_SYSTEM_OpenSSL)
     set(OPENSSL_LIBRARY ${OPENSSL_LIBRARIES})
 endif()
 
+if(USE_SYSTEM_FFI)
+    find_anyproject(FFI REQUIRED)
+    set(LibFFI_INCLUDE_DIR ${LIB_FFI_INCLUDE_DIRS})
+    set(LibFFI_LIBRARY ${LIB_FFI_LIBRARIES})
+endif()
+
 if(USE_SYSTEM_TCL)
     find_package(TCL)
 endif()
