@@ -54,8 +54,8 @@ endif()
 
 if(USE_SYSTEM_FFI)
     find_anyproject(FFI REQUIRED)
-    set(LibFFI_INCLUDE_DIR ${LIB_FFI_INCLUDE_DIRS})
-    set(LibFFI_LIBRARY ${LIB_FFI_LIBRARIES})
+    set(LibFFI_INCLUDE_DIR ${FFI_INCLUDE_DIRS})
+    set(LibFFI_LIBRARY ${FFI_LIBRARIES})
 endif()
 
 if(USE_SYSTEM_TCL)
