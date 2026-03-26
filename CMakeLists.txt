@@ -25,6 +25,20 @@ endif()
 
 project(Python C ASM)
 
+if(NOT DEFINED PACKAGE_VENDOR)
+  set(PACKAGE_VENDOR NextGIS)
+endif()
+
+if(NOT DEFINED PACKAGE_BUGREPORT)
+  set(PACKAGE_BUGREPORT info@nextgis.com)
+endif()
+
+set(PACKAGE_NAME python)
+string(TOUPPER ${PACKAGE_NAME} PACKAGE_UPPER_NAME)
+
+set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
+include(util)
+
 if(NOT DEFINED CMAKE_MACOSX_RPATH)
   set(CMAKE_MACOSX_RPATH "")
 endif()
@@ -937,3 +951,20 @@ if(INSTALL_WINDOWS_TRADITIONAL)
   set(license_destination .)
 endif()
 install(FILES ${SRC_DIR}/LICENSE DESTINATION ${license_destination} COMPONENT Runtime RENAME LICENSE.txt)
+
+# Archiving ====================================================================
+set(CPACK_PACKAGE_NAME "${PACKAGE_NAME}")
+set(CPACK_PACKAGE_VENDOR "${PACKAGE_VENDOR}")
+set(CPACK_PACKAGE_VERSION "${PY_VERSION}")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "${PACKAGE_NAME} Installation")
+set(CPACK_PACKAGE_RELOCATABLE TRUE)
+set(CPACK_ARCHIVE_COMPONENT_INSTALL ON)
+set(CPACK_GENERATOR "ZIP")
+set(CPACK_MONOLITHIC_INSTALL ON)
+set(CPACK_STRIP_FILES TRUE)
+
+# Keep archive naming convention used by NextGIS packaging.
+get_cpack_filename(${PY_VERSION} PROJECT_CPACK_FILENAME)
+set(CPACK_PACKAGE_FILE_NAME ${PROJECT_CPACK_FILENAME})
+
+include(CPack)
