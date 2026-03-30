@@ -513,6 +513,62 @@ target_compile_definitions(_freeze_importlib
   PUBLIC
     Py_NO_ENABLE_SHARED
 )
+set(_freeze_helper_runtime_dll)
+if(WIN32 AND ZLIB_FOUND)
+  foreach(_zlib_candidate ${ZLIB_LIBRARIES})
+    if(TARGET ${_zlib_candidate})
+      get_target_property(_freeze_helper_runtime_dll ${_zlib_candidate} IMPORTED_LOCATION_RELEASE)
+      if(NOT _freeze_helper_runtime_dll)
+        get_target_property(_freeze_helper_runtime_dll ${_zlib_candidate} IMPORTED_LOCATION)
+      endif()
+    elseif(IS_ABSOLUTE "${_zlib_candidate}" AND EXISTS "${_zlib_candidate}")
+      if(_zlib_candidate MATCHES "\\.dll$")
+        set(_freeze_helper_runtime_dll "${_zlib_candidate}")
+      elseif(_zlib_candidate MATCHES "\\.lib$")
+        get_filename_component(_zlib_lib_dir "${_zlib_candidate}" DIRECTORY)
+        get_filename_component(_zlib_root "${_zlib_lib_dir}/.." ABSOLUTE)
+        file(GLOB _zlib_dll_candidates "${_zlib_root}/bin/*zlib*.dll")
+        list(LENGTH _zlib_dll_candidates _zlib_dll_candidates_len)
+        if(_zlib_dll_candidates_len GREATER 0)
+          list(GET _zlib_dll_candidates 0 _freeze_helper_runtime_dll)
+        endif()
+      endif()
+    endif()
+    if(_freeze_helper_runtime_dll)
+      break()
+    endif()
+  endforeach()
+
+  # Fallback for CI setups where ZLIB_LIBRARIES does not expose an imported target path.
+  if(NOT _freeze_helper_runtime_dll AND ZLIB_DIR)
+    get_filename_component(_zlib_root "${ZLIB_DIR}/../../.." ABSOLUTE)
+    file(GLOB _zlib_dll_candidates "${_zlib_root}/bin/*zlib*.dll")
+    list(LENGTH _zlib_dll_candidates _zlib_dll_candidates_len)
+    if(_zlib_dll_candidates_len GREATER 0)
+      list(GET _zlib_dll_candidates 0 _freeze_helper_runtime_dll)
+    endif()
+  endif()
+
+  if(NOT _freeze_helper_runtime_dll AND ZLIB_LIBRARY AND IS_ABSOLUTE "${ZLIB_LIBRARY}")
+    get_filename_component(_zlib_lib_dir "${ZLIB_LIBRARY}" DIRECTORY)
+    get_filename_component(_zlib_root "${_zlib_lib_dir}/.." ABSOLUTE)
+    file(GLOB _zlib_dll_candidates "${_zlib_root}/bin/*zlib*.dll")
+    list(LENGTH _zlib_dll_candidates _zlib_dll_candidates_len)
+    if(_zlib_dll_candidates_len GREATER 0)
+      list(GET _zlib_dll_candidates 0 _freeze_helper_runtime_dll)
+    endif()
+  endif()
+
+  if(_freeze_helper_runtime_dll)
+    add_custom_command(TARGET _freeze_importlib
+      POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E echo "Copy zlib runtime for _freeze_importlib: ${_freeze_helper_runtime_dll} -> $<TARGET_FILE_DIR:_freeze_importlib>"
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${_freeze_helper_runtime_dll}"
+        "$<TARGET_FILE_DIR:_freeze_importlib>"
+    )
+  endif()
+endif()
 
 # Freeze modules for Python < 3.11
 if(PY_VERSION VERSION_LESS "3.11")
@@ -763,6 +819,15 @@ target_compile_definitions(_bootstrap_python
     PUBLIC
         Py_NO_ENABLE_SHARED
 )
+if(WIN32 AND _freeze_helper_runtime_dll)
+  add_custom_command(TARGET _bootstrap_python
+    POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E echo "Copy zlib runtime for _bootstrap_python: ${_freeze_helper_runtime_dll} -> $<TARGET_FILE_DIR:_bootstrap_python>"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${_freeze_helper_runtime_dll}"
+      "$<TARGET_FILE_DIR:_bootstrap_python>"
+  )
+endif()
 
 list(APPEND LIBPYTHON_DEEPFREEZE_SOURCES
     ${SRC_DIR}/Python/deepfreeze/deepfreeze.c
